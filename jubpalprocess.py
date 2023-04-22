@@ -152,7 +152,7 @@ for histogram in histograms:
 
 start = time.time()
 for sigma in sigmas:
-	stack, countinput = jubpalfunctions.stacker(basepath,project,imagesets,sigma,skipuvbp)
+	stack, countinput = jubpalfunctions.stacker(basepath,project,imagesets,sigma,skipuvbp,cachepath)
 	# turn image cube into a long rectangle
 	nlayers,fullh,fullw = stack.shape
 	if n_components == "max":

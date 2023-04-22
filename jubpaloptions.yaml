@@ -48,6 +48,23 @@ settings:
   fica_tol: 0.00001 # default is 0.0001
   cachepath: /storage/JubPalProj/cache/
 projects:
+  ColoradoCollege_ExodusFragment_Verso: 
+    rois:
+      roi01:
+        x: 1000
+        y: 860
+        w: 500
+        h: 500
+        label: "Gloss with stain"
+    noisesamples:
+      noise01:
+        x: 2800
+        y: 1200
+        w: 500
+        h: 500
+        label: "Margin, stain, hole, no ink"
+    imagesets:
+      - Raw
   Ambrosiana_O39sup_027:
     rois: 
       roi01:

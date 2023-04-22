@@ -14,7 +14,7 @@ def blurdivide(img,sigma):
 	denominator = filters.gaussian(img,sigma=sigma)
 	ratio = numerator / denominator
 	return ratio
-def readnblur(q,fullpath,sigma,file):
+def readnblur(q,fullpath,sigma,file,cachepath):
 	if exists(cachepath+'denoise/sigma'+str(sigma)+'/'+file): 
 		print(file,"found in cache")
 		img = io.imread(cachepath+'denoise/sigma'+str(sigma)+'/'+file)
@@ -27,7 +27,7 @@ def readnblur(q,fullpath,sigma,file):
 			img = exposure.rescale_intensity(img)
 			io.imsave(cachepath+'denoise/sigma'+str(sigma)+'/'+file,img)
 	q.put(img)
-def stacker(basepath,project,imagesets,sigma,skipuvbp):
+def stacker(basepath,project,imagesets,sigma,skipuvbp,cachepath):
 	countinput = 0 
 	stack = []
 	q = multiprocessing.Queue(maxsize=1)
@@ -39,7 +39,7 @@ def stacker(basepath,project,imagesets,sigma,skipuvbp):
 				continue
 			fullpath = basepath+project+'/'+imageset+'/'+file
 			countinput += 1
-			p = multiprocessing.Process(target=readnblur,args=(q,fullpath,sigma,file))
+			p = multiprocessing.Process(target=readnblur,args=(q,fullpath,sigma,file,cachepath))
 			processes.append(p)
 			p.start()
 	for process in processes: 
