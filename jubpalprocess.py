@@ -164,7 +164,7 @@ for sigma in sigmas:
 	roi3d = stack[:,roiy:roiy+roih,roix:roix+roiw] # note that y before x
 	roi2d = roi3d.reshape((nlayers,roiw*roih))
 	roi2d = roi2d.transpose()
-	outpath = join(basepathout,project,'r'+str(countinput)+'bd'+str(sigma))
+	outpath = join(basepathout,project,'Transform/r'+str(countinput)+'bd'+str(sigma))
 	outfile = project+'_r'+str(countinput)+'_bd'+str(sigma)
 	if ('pca' in methods):
 			method = 'pca'

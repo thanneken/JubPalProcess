@@ -37,6 +37,7 @@ output:
     - tif
     - png
 basepaths: 
+  - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_F130sup/
   - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_O39sup/
   - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_C73inf/
   - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_A79inf/
@@ -48,6 +49,24 @@ settings:
   fica_tol: 0.00001 # default is 0.0001
   cachepath: /storage/JubPalProj/cache/
 projects:
+  Ambrosiana_F130sup_039v: 
+    rois:
+      roi01:
+        x: 2000
+        y: 800
+        w: 1024
+        h: 1024
+        label: "Upper Left"
+    noisesamples:
+      noise01:
+        x: 360
+        y: 1000
+        w: 800
+        h: 800
+        label: "Left Margin"
+    imagesets: 
+      - Captures-Narrowband-NoGamma
+      - Captures-Fluorescence-NoGamma
   ColoradoCollege_ExodusFragment_Verso: 
     rois:
       roi01:
