@@ -4,6 +4,8 @@ from os import listdir, makedirs
 from os.path import exists, join
 from skimage import io, img_as_float32, img_as_uint, img_as_ubyte, filters, exposure
 import numpy 
+import rawpy
+import pyexifinfo
 
 def blurdivide(img,sigma):
 	if not img.dtype == "float32":
@@ -14,20 +16,64 @@ def blurdivide(img,sigma):
 	denominator = filters.gaussian(img,sigma=sigma)
 	ratio = numerator / denominator
 	return ratio
-def readnblur(q,fullpath,sigma,file,cachepath):
-	if exists(cachepath+'denoise/sigma'+str(sigma)+'/'+file): 
-		print(file,"found in cache")
-		img = io.imread(cachepath+'denoise/sigma'+str(sigma)+'/'+file)
-	else:
-		print("Reading",fullpath)
-		img = io.imread(fullpath)
-		img = img_as_float32(img)
-		if (sigma > 0):
-			img = blurdivide(img,sigma)
-			img = exposure.rescale_intensity(img)
-			io.imsave(cachepath+'denoise/sigma'+str(sigma)+'/'+file,img)
-	q.put(img)
-def stacker(basepath,project,imagesets,sigma,skipuvbp,cachepath):
+def flattenrotate(fullpath):
+    file = fullpath.split('/')[-1][:-4] # filename is everything after the last forward slash, and remove the extension too
+    if exists(cachepath+'flattened/'+file+'.tif'): # check cache
+        print("Found in cache: flattened/"+file+'.tif')
+        flattenedfloat = io.imread(cachepath+'flattened/'+file+'.tif')
+    else:
+        with rawpy.imread(fullpath) as raw:
+            capture = raw.raw_image.copy()
+        exif = pyexifinfo.get_json(fullpath)
+        exifflat = exif[0]["IPTC:Keywords"][11] # was index 11 n array of keywords in 2017, likely to be different in 2023
+        exifflat = exifflat+'g' # the last letter got cut off in 2017, likely to be different in 2023
+        exiforientation = exif[0]["EXIF:Orientation"]
+        flatsdir = jubpaloptions["projects"][project]["flats"] 
+        flatpath = basepath+flatsdir+exifflat
+        if not exists(flatpath): # if metadata doesn't work look for file in directory with right index number
+            print("According to EXIF, flat is",flatpath) # remove after testing
+            for flatfile in listdir(basepath+flatsdir): 
+                if flatfile[-7:] == fullpath[-7:]:
+                    flatpath = basepath+flatsdir+flatfile
+                    print("EXIF identified flat not found, flat with same index number is",flatpath)
+        with rawpy.imread(flatpath) as raw:
+            flat = raw.raw_image.copy()
+        # flattenedfloat = capture*numpy.average(flat)/flat
+        # np.divide(a, b, out=np.zeros_like(a), where=b!=0)
+        flattenedfloat = numpy.divide(capture*numpy.average(flat),flat,out=numpy.zeros_like(capture*numpy.average(flat)),where=flat!=0)
+        if exiforientation == "Rotate 90 CW": # counter-intuitive, read as rotated 90 CW and rotate 270 to correct
+            flattenedfloat = numpy.rot90(flattenedfloat,k=3)
+        elif exiforientation == "Rotate 180":
+            flattenedfloat = numpy.rot90(flattenedfloat,k=2)
+        elif exiforientation == "Rotate 90 CCW":
+            flattenedfloat = numpy.rot90(flattenedfloat)
+        elif exiforientation == "Rotate 270 CW":
+            flattenedfloat = numpy.rot90(flattenedfloat)
+        # save flat to cache
+        flattenedfloat = img_as_float32(flattenedfloat)
+        makedirs(cachepath+'flattened/',mode=0o755,exist_ok=True)
+        io.imsave(cachepath+'flattened/'+file+'.tif',flattenedfloat)
+    return flattenedfloat
+def readnblur(q,fullpath,sigma):
+    file = fullpath.split('/')[-1][:-4] 
+    if exists(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif'): 
+        print(file+".tif found in cache")
+        img = io.imread(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif')
+    else:
+        print("Reading",fullpath)
+        if (fullpath.endswith('.tif')): # if ends in tif then read
+            img = io.imread(fullpath)
+            img = img_as_float32(img)
+        elif (fullpath.endswith('.dng')): # if ends in dng then flatten and rotate
+            img = flattenrotate(fullpath)
+        if (sigma > 0):
+            img = blurdivide(img,sigma)
+            img = exposure.rescale_intensity(img)
+            makedirs(cachepath+'denoise/sigma'+str(sigma)+'/',mode=0o755,exist_ok=True)
+            io.imsave(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif',img)
+    q.put(img)
+#def stacker(basepath,project,imagesets,sigma,skipuvbp,cachepath):
+def stacker(sigma):
 	countinput = 0 
 	stack = []
 	q = multiprocessing.Queue(maxsize=1)
@@ -39,7 +85,7 @@ def stacker(basepath,project,imagesets,sigma,skipuvbp,cachepath):
 				continue
 			fullpath = basepath+project+'/'+imageset+'/'+file
 			countinput += 1
-			p = multiprocessing.Process(target=readnblur,args=(q,fullpath,sigma,file,cachepath))
+			p = multiprocessing.Process(target=readnblur,args=(q,fullpath,sigma))
 			processes.append(p)
 			p.start()
 	for process in processes: 

@@ -10,7 +10,7 @@ import jubpalfunctions
 datafile = 'jubpaloptions.yaml'
 print("Reading options from",datafile)
 with open(datafile,'r') as unparsedyaml:
-	jubpaloptions = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
+    jubpaloptions = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
 ## read non-interactive options
 cachepath = jubpaloptions["settings"]["cachepath"]
 fica_max_iter = jubpaloptions["settings"]["fica_max_iter"]
@@ -150,9 +150,17 @@ if ('mnf' in methods):
 for histogram in histograms:
 	print("Histogram adjustment is",histogram)
 
+jubpalfunctions.jubpaloptions = jubpaloptions
+jubpalfunctions.project = project
+jubpalfunctions.basepath = basepath
+jubpalfunctions.imagesets = imagesets
+jubpalfunctions.skipuvbp = skipuvbp
+jubpalfunctions.cachepath = cachepath
+
 start = time.time()
 for sigma in sigmas:
-	stack, countinput = jubpalfunctions.stacker(basepath,project,imagesets,sigma,skipuvbp,cachepath)
+	# stack, countinput = jubpalfunctions.stacker(basepath,project,imagesets,sigma,skipuvbp,cachepath)
+	stack, countinput = jubpalfunctions.stacker(sigma)
 	# turn image cube into a long rectangle
 	nlayers,fullh,fullw = stack.shape
 	if n_components == "max":

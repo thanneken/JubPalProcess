@@ -13,13 +13,13 @@ options:
     - mnf
     - pca
     - fica
-    - kpca  
-    - specembed
-    - cca
+    #- kpca  
+    #- specembed
+    #- cca
   n_components: 
     - max
-    - 1
-    - 2
+    #- 1
+    #- 2
     #- 3 # this can be problematic if don't want assumed to be rgb
     - 5
     - 10
@@ -27,7 +27,7 @@ output:
   histograms: 
     - equalize
     - rescale
-    - none
+    #- none
     - adaptive
   multilayer:
     - separate files
@@ -42,13 +42,41 @@ basepaths:
   - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_C73inf/
   - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_A79inf/
   - /home/thanneken/Projects/
-  - /mnt/JubPalProj/AmbrosianaArchive/Ambrosiana_C73inf/
-  - /mnt/JubPalProj/AmbrosianaArchive/Ambrosiana_O39sup/
 settings:
-  fica_max_iter: 100000 # default is 100
-  fica_tol: 0.00001 # default is 0.0001
+  fica_max_iter: 10000 # default is 100, 100000 took days
+  fica_tol: 0.0001 # default is 0.0001, 0.00001 took days
   cachepath: /storage/JubPalProj/cache/
 projects:
+  Ambrosiana_F130sup_057r:
+    rois: 
+      roi01:
+        x: 1100
+        y: 5000
+        w: 1024
+        h: 1024
+        label: "No reagent"
+      roi02:
+        x: 3300
+        y: 1200
+        w: 1024
+        h: 1024
+        label: "Reagent"
+    noisesamples:
+      noise01:
+        x: 2580
+        y: 4288
+        w: 172
+        h: 316
+        label: "Overtext, parchment, no reagent, no undertext"
+      noise02:
+        x: 2544
+        y: 1188
+        w: 396
+        h: 660
+        label: "Overtext, parchment, reagent, no undertext"
+    imagesets:
+      - Captures-Raw
+    flats: "../Calibration/Flats_D20170116-T140129/"
   Ambrosiana_F130sup_039v: 
     rois:
       roi01:
