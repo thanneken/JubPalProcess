@@ -6,6 +6,7 @@ from skimage import io, img_as_float32, img_as_uint, img_as_ubyte, filters, expo
 import numpy 
 import rawpy
 import pyexifinfo
+import logging
 
 def blurdivide(img,sigma):
 	if not img.dtype == "float32":
@@ -19,7 +20,7 @@ def blurdivide(img,sigma):
 def flattenrotate(fullpath):
     file = fullpath.split('/')[-1][:-4] # filename is everything after the last forward slash, and remove the extension too
     if exists(cachepath+'flattened/'+file+'.tif'): # check cache
-        print("Found in cache: flattened/"+file+'.tif')
+        logger.info("Found in cache: flattened/"+file+'.tif')
         flattenedfloat = io.imread(cachepath+'flattened/'+file+'.tif')
     else:
         with rawpy.imread(fullpath) as raw:
@@ -31,11 +32,11 @@ def flattenrotate(fullpath):
         flatsdir = jubpaloptions["projects"][project]["flats"] 
         flatpath = basepath+flatsdir+exifflat
         if not exists(flatpath): # if metadata doesn't work look for file in directory with right index number
-            print("According to EXIF, flat is",flatpath) # remove after testing
+            logger.info("According to EXIF, flat is "+flatpath) 
             for flatfile in listdir(basepath+flatsdir): 
                 if flatfile[-7:] == fullpath[-7:]:
                     flatpath = basepath+flatsdir+flatfile
-                    print("EXIF identified flat not found, flat with same index number is",flatpath)
+                    logger.info("EXIF identified flat not found, flat with same index number is "+flatpath)
         with rawpy.imread(flatpath) as raw:
             flat = raw.raw_image.copy()
         # flattenedfloat = capture*numpy.average(flat)/flat
@@ -57,10 +58,10 @@ def flattenrotate(fullpath):
 def readnblur(q,fullpath,sigma):
     file = fullpath.split('/')[-1][:-4] 
     if exists(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif'): 
-        print(file+".tif found in cache")
+        logger.info(file+".tif found in cache")
         img = io.imread(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif')
     else:
-        print("Reading",fullpath)
+        logger.info("Reading "+fullpath)
         if (fullpath.endswith('.tif')): # if ends in tif then read
             img = io.imread(fullpath)
             img = img_as_float32(img)
@@ -101,7 +102,7 @@ def histogram_adjust(outpath,outfile,histograms,d3_processed,fileformats,multila
 		p.start()
 def histogram_adjust_thread(outpath,outfile,histogram,d3_processed,fileformats,multilayer,n_components):
 	if histogram == 'equalize':
-		print("Performing histogram equalization")
+		logger.info("Performing histogram equalization")
 		adjusted_eq = d3_processed
 		for i in range (0,n_components):
 			adjusted_eq[i,:,:]  = exposure.equalize_hist(adjusted_eq[i,:,:])
@@ -109,7 +110,7 @@ def histogram_adjust_thread(outpath,outfile,histogram,d3_processed,fileformats,m
 		outfile_h = outfile+'_'+histogram
 		save_all_formats(adjusted=adjusted_eq,histogram=histogram,outpath=outpath_h,outfile=outfile_h,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 	elif histogram == 'rescale':
-		print("Performing histogram rescale")
+		logger.info("Performing histogram rescale")
 		adjusted_rs = d3_processed
 		for i in range (0,n_components):
 			adjusted_rs[i,:,:]  = exposure.rescale_intensity(adjusted_rs[i,:,:])
@@ -117,7 +118,7 @@ def histogram_adjust_thread(outpath,outfile,histogram,d3_processed,fileformats,m
 		outfile_h = outfile+'_'+histogram
 		save_all_formats(adjusted=adjusted_rs,histogram=histogram,outpath=outpath_h,outfile=outfile_h,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 	elif histogram == 'adaptive':
-		print("Performing adaptive histogram equalization")
+		logger.info("Performing adaptive histogram equalization")
 		adjusted_ad = d3_processed
 		for i in range (0,n_components):
 			adjusted_ad[i,:,:] = exposure.rescale_intensity(adjusted_ad[i,:,:])
@@ -126,7 +127,7 @@ def histogram_adjust_thread(outpath,outfile,histogram,d3_processed,fileformats,m
 		outfile_h = outfile+'_'+histogram
 		save_all_formats(adjusted=adjusted_ad,histogram=histogram,outpath=outpath_h,outfile=outfile_h,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 	else:
-		print("Passing with no histogram adjustment")
+		logger.info("Passing with no histogram adjustment")
 		adjusted_n = d3_processed
 		outpath_h = join(outpath,histogram)
 		outfile_h = outfile+'_'+histogram
@@ -142,13 +143,13 @@ def save_all_formats(adjusted,histogram,outpath,outfile,fileformats,multilayer,n
 		## write to disk as requested
 		if multilayer == 'stack' and fileformat == 'tif':
 			outfile_current = outfile_current+'.'+fileformat
-			print("Saving",outfile_current)
+			logger.info("Saving "+outfile_current)
 			img32 = img_as_float32(adjusted)
 			io.imsave(outfile_current,img32)
 		elif n_components == 1:
 			outfile_current = outfile_current+'.'+fileformat
 			component = adjusted[0,:,:]
-			print("Saving",outfile_current)
+			logger.info("Saving "+outfile_current)
 			if fileformat == 'tif':
 				img32 = img_as_float32(component)
 				io.imsave(outfile_current,img32)
@@ -161,7 +162,7 @@ def save_all_formats(adjusted,histogram,outpath,outfile,fileformats,multilayer,n
 		elif multilayer == 'separate files':
 			for i in range (0,n_components):
 				outfilec = outfile_current+'_c'+str(f"{i:02d}")+'.'+fileformat
-				print("Saving",outfilec)
+				logger.info("Saving "+outfilec)
 				component = adjusted[i,:,:]
 				if fileformat == 'tif':
 					img32 = img_as_float32(component)
@@ -170,7 +171,7 @@ def save_all_formats(adjusted,histogram,outpath,outfile,fileformats,multilayer,n
 					img16 = img_as_uint(component)
 					io.imsave(outfilec,img16)
 				elif (fileformat=='jpg' and histogram=='none'):
-					print("Can't save floating point to jpeg without at least some histogram adjustment")
+					logger.warn("Can't save floating point to jpeg without at least some histogram adjustment")
 				elif fileformat == 'jpg':
 					img8 = img_as_ubyte(component)
 					io.imsave(outfilec,img8)

@@ -1,10 +1,11 @@
 #!/home/thanneken/python/miniconda3/bin/python
 from skimage import io, img_as_float32
-from os.path import join
+from os.path import exists, join
 import time 
 import yaml 
 import inquirer
 import jubpalfunctions
+import logging
 
 # GATHER INPUT
 datafile = 'jubpaloptions.yaml'
@@ -15,6 +16,18 @@ with open(datafile,'r') as unparsedyaml:
 cachepath = jubpaloptions["settings"]["cachepath"]
 fica_max_iter = jubpaloptions["settings"]["fica_max_iter"]
 fica_tol = jubpaloptions["settings"]["fica_tol"]
+logfile = jubpaloptions["settings"]["logfile"]
+## configure logging
+logger = logging.getLogger(__name__) # necessary to instantiate?
+if exists(logfile): 
+	logging.basicConfig(
+		filename=logfile, 
+		format='%(asctime)s %(levelname)s %(message)s', 
+		datefmt='%Y%m%d %H:%M:%S', 
+		level=logging.DEBUG # levels are DEBUG INFO WARNING CRITICAL ERROR CRITICAL
+	) 
+else:
+	print("Log file not specified or not found")
 ## select one basepath
 if len(jubpaloptions["basepaths"]) > 1:
   questions = [inquirer.List('basepath',"Select basepath for source data",choices=jubpaloptions["basepaths"])]
@@ -134,21 +147,26 @@ if len(jubpaloptions["output"]["fileformats"]) > 1:
 else:
 	fileformats = jubpaloptions["output"]["fileformats"][0] 
 
+if exists(logfile): 
+	print("All information gathered, progress info available in",logfile)
+else:
+	print("All information gathered, processing underway, if you would like progress info please create a logfile and specify it in jubpaloptions.yaml")
+
 # Summarize Choices
-print("Basepath is",basepath)
-print("Project is",project)
+logger.info("Basepath is "+basepath)
+logger.info("Project is "+project)
 for sigma in sigmas:
-	print("Sigma is",sigma)
+	logger.info("Sigma is "+str(sigma))
 for method in methods:
-	print("Process is",method)
-print("nLayers is",n_components)
+	logger.info("Process is "+method)
+logger.info("nLayers is "+str(n_components))
 for imageset in imagesets:
-	print("Imageset is",imageset)
-print("ROI is",roi,roilabel,roix,roiy,roiw,roih)
+	logger.info("Imageset is "+imageset)
+logger.info("ROI is "+roi+' '+str(roilabel)+' '+str(roix)+' '+str(roiy)+' '+str(roiw)+' '+str(roih))
 if ('mnf' in methods):
-	print("Noise sample is",noisesample,noisesamplelabel,noisesamplex,noisesampley,noisesamplew,noisesampleh)
+	logger.info("Noise sample is "+noisesample+' '+noisesamplelabel+' '+noisesamplex+' '+noisesampley+' '+noisesamplew+' '+noisesampleh)
 for histogram in histograms:
-	print("Histogram adjustment is",histogram)
+	logger.info("Histogram adjustment is "+histogram)
 
 jubpalfunctions.jubpaloptions = jubpaloptions
 jubpalfunctions.project = project
@@ -156,6 +174,7 @@ jubpalfunctions.basepath = basepath
 jubpalfunctions.imagesets = imagesets
 jubpalfunctions.skipuvbp = skipuvbp
 jubpalfunctions.cachepath = cachepath
+jubpalfunctions.logger = logger
 
 start = time.time()
 for sigma in sigmas:
@@ -178,13 +197,13 @@ for sigma in sigmas:
 			method = 'pca'
 			from sklearn.decomposition import PCA
 			pca = PCA(n_components=n_components)
-			print("Starting fit")
+			logger.info("Starting fit")
 			pca.fit(roi2d)
-			print("Starting transform")
+			logger.info("Starting transform")
 			d2_processed = pca.transform(capture2d)
 			d2_processed = d2_processed.transpose()
 			d3_processed = d2_processed.reshape(n_components,fullh,fullw)
-			print("Processed cube is",d3_processed.shape,d3_processed.dtype)
+			logger.info("Processed cube is "+d3_processed.shape+' '+d3_processed.dtype)
 			outpath_pca = join(outpath,method+'_'+roistring)
 			outfile_pca = outfile+'_'+method+'_'+roistring
 			jubpalfunctions.histogram_adjust(outpath=outpath_pca,outfile=outfile_pca,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
@@ -192,19 +211,19 @@ for sigma in sigmas:
 			method = 'mnf'
 			from spectral import calc_stats, noise_from_diffs, mnf
 			stack = stack.transpose()
-			print("Transposed stack has shape",stack.shape,"and dtype",stack.dtype)
-			print("Calculating signal...")
+			logger.info("Transposed stack has shape"+' '+stack.shape+' '+"and dtype"+' '+stack.dtype)
+			logger.info("Calculating signal...")
 			signal = calc_stats(stack[roix:roix+roiw,roiy:roiy+roih,:])
-			print("Calculating noise...")
+			logger.info("Calculating noise...")
 			noise = noise_from_diffs(stack[noisesamplex:noisesamplex+noisesamplew,noisesampley:noisesampley+noisesampleh,:])
-			print("Calculating ratio...")
+			logger.info("Calculating ratio...")
 			mnfr = mnf(signal,noise)
 			# denoised = mnfr.denoise(stack,snr=10) # not sure this is doing anything
 			# d3_processed = mnfr.denoise(stack,snr=10) 
 			d3_processed = mnfr.reduce(stack,num=n_components)
 			d3_processed = d3_processed.transpose()
 			d3_processed = img_as_float32(d3_processed)
-			print("Reshaped to",d3_processed.shape,d3_processed.dtype)
+			logger.info("Reshaped to "+d3_processed.shape+' '+d3_processed.dtype)
 			outpath_mnf = join(outpath,method+'_'+roistring+'n'+noisestring)
 			outfile_mnf = outfile+'_'+method+'_'+roistring+'n'+noisestring
 			jubpalfunctions.histogram_adjust(outpath=outpath_mnf,outfile=outfile_mnf,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
@@ -215,44 +234,44 @@ for sigma in sigmas:
 			max_iter = fica_max_iter
 			tol = fica_tol
 			fica = FastICA(n_components=n_components,max_iter=max_iter,tol=tol)
-			print("Starting fit")
+			logger.info("Starting fit")
 			fica.fit(roi2d)
-			print("Starting transform")
+			logger.info("Starting transform")
 			d2_processed = fica.transform(capture2d)
 			d2_processed = img_as_float32(d2_processed)
-			print("Processed 2d is",d2_processed.shape,d2_processed.dtype)
+			logger.info("Processed 2d is "+d2_processed.shape+' '+d2_processed.dtype)
 			d2_processed = d2_processed.transpose()
-			print("Transposed to",d2_processed.shape,d2_processed.dtype)
+			logger.info("Transposed to "+d2_processed.shape+' '+d2_processed.dtype)
 			d3_processed = d2_processed.reshape(n_components,fullh,fullw)
-			print("Reshaped to",d3_processed.shape,d3_processed.dtype)
+			logger.info("Reshaped to "+d3_processed.shape+' '+d3_processed.dtype)
 			outpath_fica = join(outpath,method+'_'+roistring)
 			outfile_fica = outfile+'_'+method+'_'+roistring
 			jubpalfunctions.histogram_adjust(outpath=outpath_fica,outfile=outfile_fica,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 	if ('cca' in methods):
 			method = 'cca'
-			print("starting method cca")
+			logger.info("starting method cca")
 			#classification = io.imread("/home/thanneken/Projects/Ambrosiana_C73inf_052/classification.tif") # temporary hard wired
 			classification = io.imread("/home/thanneken/Projects/USCAntiphonary/train-32bit-rgb-chip.tif") # temporary hard wired
 			classification = io.imread("/home/thanneken/Projects/Ambrosiana_A79inf_001v/train-32bit-rgb.tif")
 			classification = img_as_float32(classification)
 			#classification = exposure.rescale_intensity(classification) 
-			print("Classification is ",classification.shape,classification.dtype)
+			logger.info("Classification is "+classification.shape+' '+classification.dtype)
 			classh,classw,classlayers = classification.shape
 			class2d = classification.reshape(classw*classh,classlayers) 
 			#class2d = classification.reshape(classlayers,classw*classh) 
 			#class2d = class2d.transpose()
-			print("Classification 2d is ",class2d.shape,class2d.dtype)
+			logger.info("Classification 2d is "+class2d.shape+' '+class2d.dtype)
 			from sklearn.cross_decomposition import CCA
 			cca = CCA(n_components=n_components,max_iter=5000)
-			print("Starting fit")
+			logger.info("Starting fit")
 			cca.fit(roi2d,class2d)
-			print("Starting transform")
+			logger.info("Starting transform")
 			d2_processed = cca.transform(capture2d)
-			print("Processed 2d is",d2_processed.shape,d2_processed.dtype)
+			logger.info("Processed 2d is "+d2_processed.shape+' '+d2_processed.dtype)
 			d2_processed = d2_processed.transpose()
-			print("Transposed to",d2_processed.shape,d2_processed.dtype)
+			logger.info("Transposed to "+d2_processed.shape+' '+d2_processed.dtype)
 			d3_processed = d2_processed.reshape(n_components,fullh,fullw)
-			print("Reshaped to",d3_processed.shape,d3_processed.dtype)
+			logger.info("Reshaped to "+d3_processed.shape+' '+d3_processed.dtype)
 			outpath_cca = join(outpath,method+'_'+roistring)
 			outfile_cca = outfile+'_'+method+'_'+roistring
 			jubpalfunctions.histogram_adjust(outpath=outpath_cca,outfile=outfile_cca,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
@@ -264,9 +283,9 @@ for sigma in sigmas:
 			eigen_solver="dense" # auto|dense|arpack
 			n_jobs=-1 # -1 means all cores
 			kpca = KernelPCA(n_components=n_components,kernel=kernel,eigen_solver=eigen_solver,n_jobs=n_jobs)
-			print("starting fit")
+			logger.info("starting fit")
 			kpca.fit(roi2d)
-			print("done with fit, starting transform")
+			logger.info("done with fit, starting transform")
 			# transform a certain number of lines at a time
 			linesatatime = 8 # higher is faster, must be a factor of number of lines
 			for x in range(0,fullh,linesatatime): # for each line index (zero to height - 1)
@@ -275,12 +294,12 @@ for sigma in sigmas:
 							d2_processed = line_processed
 					else: # for subsequent lines
 							d2_processed = numpy.concatenate((d2_processed,line_processed))
-					print("Processed 2d is",d2_processed.shape,d2_processed.dtype,fullw*x,fullw*(x+linesatatime))
-			print("Processed 2d is",d2_processed.shape,d2_processed.dtype)
+					logger.info("Processed 2d is "+d2_processed.shape+' '+d2_processed.dtype+' '+fullw*x+' '+fullw*(x+linesatatime))
+			logger.info("Processed 2d is "+d2_processed.shape+' '+d2_processed.dtype)
 			d2_processed = d2_processed.transpose()
-			print("Transposed to",d2_processed.shape,d2_processed.dtype)
+			logger.info("Transposed to "+d2_processed.shape+' '+d2_processed.dtype)
 			d3_processed = d2_processed.reshape(n_components,fullh,fullw)
-			print("Reshaped to",d3_processed.shape,d3_processed.dtype)
+			logger.info("Reshaped to "+d3_processed.shape+' '+d3_processed.dtype)
 			outpath_kpca = join(outpath,method+'_'+roistring)
 			outfile_kpca = outfile+'_'+method+'_'+roistring
 			jubpalfunctions.histogram_adjust(outpath=outpath_kpca,outfile=outfile_kpca,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
@@ -301,17 +320,17 @@ for sigma in sigmas:
 			geom = Geometry(adjacency_method=adjacency_method, adjacency_kwds=adjacency_kwds,
 											affinity_method=affinity_method, affinity_kwds=affinity_kwds,
 											laplacian_method=laplacian_method, laplacian_kwds=laplacian_kwds)
-			print("Ready to compute adjancency matrix")
+			logger.info("Ready to compute adjancency matrix")
 			geom.set_data_matrix(roi2d)
 			adjacency_matrix = geom.compute_adjacency_matrix()
-			print("Computed adjancency matrix, ready to fit_transform")
+			logger.info("Computed adjancency matrix, ready to fit_transform")
 			spec = SpectralEmbedding(n_components=n_components, eigen_solver=eigen_solver,geom=geom, drop_first=False)
 			d2_processed = spec.fit_transform(roi2d)
-			print("Processed 2d is",d2_processed.shape,d2_processed.dtype)
+			logger.info("Processed 2d is "+d2_processed.shape+' '+d2_processed.dtype)
 			d2_processed = d2_processed.transpose()
-			print("Transposed to",d2_processed.shape,d2_processed.dtype)
+			logger.info("Transposed to "+d2_processed.shape+' '+d2_processed.dtype)
 			d3_processed = d2_processed.reshape(n_components,roih,roiw)
-			print("Reshaped to",d3_processed.shape,d3_processed.dtype)
+			logger.info("Reshaped to "+d3_processed.shape+' '+d3_processed.dtype)
 			outpath_specembed = join(outpath,method+'_'+roistring)
 			outfile_specembed = outfile+'_'+method+'_'+roistring
 			jubpalfunctions.histogram_adjust(outpath=outpath_specembed,outfile=outfile_specembed,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
@@ -319,5 +338,5 @@ for sigma in sigmas:
 # REPORT DURATION
 end = time.time()
 duration = end - start
-print("Completed after ",duration," seconds")
+logger.info("Completed after "+duration+" seconds")
 

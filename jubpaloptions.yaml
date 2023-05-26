@@ -46,6 +46,7 @@ settings:
   fica_max_iter: 10000 # default is 100, 100000 took days
   fica_tol: 0.0001 # default is 0.0001, 0.00001 took days
   cachepath: /storage/JubPalProj/cache/
+  logfile: /home/thanneken/logs/jubpalprocess.log
 projects:
   Ambrosiana_F130sup_057r:
     rois: 
@@ -75,7 +76,7 @@ projects:
         h: 660
         label: "Overtext, parchment, reagent, no undertext"
     imagesets:
-      - Captures-Raw
+      - Captures-Raw-Select
     flats: "../Calibration/Flats_D20170116-T140129/"
   Ambrosiana_F130sup_039v: 
     rois:
