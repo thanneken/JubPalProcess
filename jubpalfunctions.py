@@ -8,6 +8,8 @@ import rawpy
 import pyexifinfo
 import logging
 
+# as of June 11, 2023 the functions are moved into jubpalprocess.py and this file deprecated
+
 def blurdivide(img,sigma):
 	if not img.dtype == "float32":
 		img = img_as_float32(img)

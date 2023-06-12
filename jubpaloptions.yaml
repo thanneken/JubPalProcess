@@ -1,6 +1,9 @@
 document: processing options and data sources
 tip: options can be ordered (top is default) and commented out (if only one remains the user will not be prompted)
 options: 
+  interactive: # also possible to add 'noninteractive' argument in command line
+    - True
+    - False
   sigmas: 
     - 500
     - 50
@@ -21,7 +24,7 @@ options:
     #- 1
     #- 2
     #- 3 # this can be problematic if don't want assumed to be rgb
-    - 5
+    #- 5
     - 10
 output: 
   histograms: 
@@ -35,8 +38,9 @@ output:
   fileformats: 
     - jpg
     - tif
-    - png
+    #- png
 basepaths: 
+  - /storage/JubPalProj/Ambrosiana2023/Ambrosiana_F130sup/
   - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_F130sup/
   - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_O39sup/
   - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_C73inf/
@@ -44,11 +48,11 @@ basepaths:
   - /home/thanneken/Projects/
 settings:
   fica_max_iter: 10000 # default is 100, 100000 took days
-  fica_tol: 0.0001 # default is 0.0001, 0.00001 took days
+  fica_tol: 0.001 # default is 0.0001, 0.00001 took days
   cachepath: /storage/JubPalProj/cache/
   logfile: /home/thanneken/logs/jubpalprocess.log
 projects:
-  Ambrosiana_F130sup_057r:
+  Ambrosiana_F130sup_test2:
     rois: 
       roi01:
         x: 1100
@@ -76,9 +80,9 @@ projects:
         h: 660
         label: "Overtext, parchment, reagent, no undertext"
     imagesets:
-      - Captures-Raw-Select
+      - Raw
     flats: "../Calibration/Flats_D20170116-T140129/"
-  Ambrosiana_F130sup_039v: 
+  Ambrosiana_F130sup_test1:
     rois:
       roi01:
         x: 2000
@@ -94,344 +98,5 @@ projects:
         h: 800
         label: "Left Margin"
     imagesets: 
-      - Captures-Narrowband-NoGamma
-      - Captures-Fluorescence-NoGamma
-  ColoradoCollege_ExodusFragment_Verso: 
-    rois:
-      roi01:
-        x: 1000
-        y: 860
-        w: 500
-        h: 500
-        label: "Gloss with stain"
-    noisesamples:
-      noise01:
-        x: 2800
-        y: 1200
-        w: 500
-        h: 500
-        label: "Margin, stain, hole, no ink"
-    imagesets:
       - Raw
-  Ambrosiana_O39sup_027:
-    rois: 
-      roi01:
-        x: 6207
-        y: 3781
-        w: 1000
-        h: 1000
-        label: "Two Reagents Two Inks"
-    noisesamples: 
-      noise01:
-        x: 954
-        y: 2513  
-        w: 640
-        h: 640
-        label: "Parchment and New Ink"
-    imagesets: 
-      - Captures-Narrowband-NoGamma
-      - Captures-Fluorescence-NoGamma
-  Ambrosiana_O39sup_008:
-    rois: 
-      roi01:
-        x: 1766
-        y: 3955
-        w: 640
-        h: 640
-        label: "Small with Blue Reagent"
-    noisesamples: 
-      noise01:
-        x: 6143
-        y: 1278  
-        w: 640
-        h: 640
-        label: "Margin No Ink"
-    imagesets: 
-      - Captures-Narrowband-NoGamma
-      - Captures-Fluorescence-NoGamma
-  Ambrosiana_O39sup_001:
-    rois: 
-      roi01:
-        x: 870
-        y: 1845
-        w: 1024
-        h: 1024
-        label: "upper left"
-      roi02: 
-        x: 900
-        y: 2700
-        w: 1600
-        h: 900
-        label: "Include Blue Reagent"
-    noisesamples: 
-      noise01:
-        x: 6200
-        y: 1200
-        w: 1024
-        h: 1024
-        label: "parchment and new ink, been throwing errors"
-      noise02: 
-        x: 6874
-        y: 1242
-        w: 1024
-        h: 1024
-        label: "parchment no ink, been throwing errors"
-      noise03: 
-        x: 1452
-        y: 1428
-        w: 570
-        h: 336
-        label: "upper left margin"
-    imagesets: 
-      - Captures-Narrowband-NoGamma
-      - Captures-Fluorescence-NoGamma
-  Ambrosiana_C73inf_133:
-    rois:
-      roi01:
-        x: 1600
-        y: 1600
-        w: 1000
-        h: 1000
-        label: "upper left"
-      roi02:
-        x: 1412
-        y: 4770
-        w: 1486
-        h: 1980
-        label: "superset of noise02"
-    imagesets: 
-      - Captures-Narrowband-NoGamma
-      - Captures-Fluorescence-NoGamma
-      - Captures-Transmissive-NoGamma
-    noisesamples: 
-      noise01:
-        x: 1500
-        y: 1482
-        w: 3654
-        h: 4332
-        label: "most of the page"
-      noise02:
-        x: 1412
-        y: 6240
-        w: 1486
-        h: 510
-        label: "subset of roi02"
-  Ambrosiana_C73inf_134:
-    rois:
-      roi01:
-        x: 1591
-        y: 6026
-        w: 1014
-        h: 267
-        label: "low distraction"
-      roi02:
-        x: 3434
-        y: 4257
-        w: 1000
-        h: 1000
-        label: "right center"
-      roi03:
-        x: 3550
-        y: 1900
-        w: 1000
-        h: 1000
-        label: "upper right"
-      roi04:
-        x: 904
-        y: 2376
-        w: 1000
-        h: 1000
-        label: "upper left"
-      roi05:
-        x: 2028
-        y: 5700
-        w: 170
-        h: 105
-        label: "col a line 19"
-    imagesets: 
-      - Captures-Narrowband-NoGamma
-      - Captures-Fluorescence-NoGamma
-      - Captures-Transmissive-NoGamma
-    noisesamples: 
-      noise01:
-        x: 1041
-        y: 2312
-        w: 3677
-        h: 4328
-        label: "most of the page"
-  Ambrosiana_A79inf_001v:
-    rois:
-      roi01: 
-        x: 0
-        y: 0
-        w: 6132
-        h: 8176
-        label: "full frame"
-    imagesets:
-      - Captures-Narrowband-NoGamma
-      - Captures-Fluorescence-NoGamma
-  USCAntiphonary:
-    rois:
-      roi01:
-        x: 1464
-        y: 1456
-        w: 5864
-        h: 3496
-        label: "full page"
-      roi02:
-        x: 0
-        y: 0
-        w: 8176
-        h: 6132
-        label: "full frame"
-      roi03:
-        x: 7186
-        y: 3114
-        w: 119
-        h: 776
-        label: "Color checker RGB"
-    imagesets:
-      - Captures-Narrowband
-  Ambrosiana_C73inf_052:
-    rois: 
-      roi01:
-        x: 3600
-        y: 3600
-        w: 1024
-        h: 1024
-        label: "large"
-      roi02:
-        x: 1000
-        y: 1200
-        w: 1024
-        h: 1024
-        label: "large"
-      roi03:
-        x: 1400
-        y: 5000
-        w: 1024
-        h: 1024
-        label: "large"
-      roi04:
-        x: 850
-        y: 1180
-        w: 400
-        h: 100
-        label: "small"
-      roi05:
-        x: 1700
-        y: 1200
-        w: 200
-        h: 200
-        label: "class"
-    imagesets: 
-      - Captures-Narrowband-NoGamma
-      - Captures-Fluorescence-NoGamma
-      - Captures-Transmissive-NoGamma
-    classifications:
-      classification05: 
-        "/home/thanneken/Projects/Ambrosiana_C73inf_052/classification.tif"
-  Ambrosiana_C73inf_061: 
-    rois: 
-      roi01: 
-        x: 3600
-        y: 1800
-        w: 1024
-        h: 1024
-        label: "large"
-      roi02: 
-        x: 3600
-        y: 1800
-        w: 256
-        h: 256
-        label: "small"
-      roi03: 
-        x: 1673
-        y: 3624
-        w: 1024
-        h: 1024
-        label: "large"
-    imagesets: 
-      - Captures-Narrowband-NoGamma
-      - Captures-Fluorescence-NoGamma
-      - Captures-Transmissive-NoGamma
-  Ambrosiana_C73inf_062: 
-    rois: 
-      roi01: 
-        x: 3800
-        y: 5200
-        w: 1024
-        h: 1024
-        label: "large"
-      roi02: 
-        x: 1000
-        y: 2500
-        w: 256
-        h: 256
-        label: "small"
-    imagesets: 
-      - Captures-Narrowband-NoGamma
-      - Captures-Fluorescence-NoGamma
-      - Captures-Transmissive-NoGamma
-  Ambrosiana_C73inf_110:
-    rois: 
-      roi01:
-        x: 1390
-        y: 2260
-        w: 256
-        h: 256
-        label: "small"
-      roi02:
-        x: 1696
-        y: 2464
-        w: 1024
-        h: 1024
-        label: "large"
-    imagesets: 
-      - Captures-Fluorescence-NoGamma-NoneNeeded
-      - Captures-Fluorescence-NoGamma-Registered
-      - Captures-Narrowband-NoGamma
-      - Captures-Transmissive-NoGamma
-  Ambrosiana_C73inf_067:
-    rois:
-      roi01:
-        x: 3600
-        y: 3234
-        w: 300
-        h: 200
-        label: "small"
-      roi02: 
-        x: 3400
-        y: 2400
-        w: 1024
-        h: 1024
-        label: "large"
-      roi03:
-        x: 3700
-        y: 3234
-        w: 100
-        h: 200
-        label: "small"
-    imagesets: 
-      - Captures-Fluorescence-NoGamma-NoneNeeded
-      - Captures-Narrowband-NoGamma
-      - Captures-Transmissive-NoGamma
-  Ambrosiana_C73inf_112:
-    rois: 
-      roi01:
-        x: 1402
-        y: 2515
-        w: 400
-        h: 100
-        label: orbis
-      roi02:
-        x: 1579
-        y: 1304
-        w: 400
-        h: 100
-        label: rubric c1l1
-    imagesets: 
-      - Captures-Narrowband-NoGamma
-      - Captures-Fluorescence-NoGamma
-      - Captures-Transmissive-NoGamma
-# would be nice to check documented options against options present in the selected path
+    flats: "../Calibration/Flats_D20170116-T140129/"
