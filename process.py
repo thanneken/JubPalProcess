@@ -14,6 +14,9 @@ import logging
 import sys
 
 # DEFINE OUR FUNCTIONS
+def nextNeededProject(projects):
+  matches = (f for f in projects if exists(basepath+f) and not exists(basepath+f+'/Transform'))
+  return next(matches,None)
 def blurdivide(img,sigma):
 	if not img.dtype == "float32":
 		img = img_as_float32(img)
@@ -33,7 +36,8 @@ def flattenrotate(fullpath):
             capture = raw.raw_image.copy()
         exif = pyexifinfo.get_json(fullpath)
         exifflat = exif[0]["IPTC:Keywords"][11] # was index 11 n array of keywords in 2017, likely to be different in 2023
-        exifflat = exifflat+'g' # the last letter got cut off in 2017, likely to be different in 2023
+        if exifflat.endswith('.dn'):
+          exifflat = exifflat+'g' # the last letter got cut off in 2017, likely to be different in 2023
         exiforientation = exif[0]["EXIF:Orientation"]
         flatsdir = jubpaloptions["projects"][project]["flats"] 
         flatpath = basepath+flatsdir+exifflat
@@ -51,7 +55,14 @@ def flattenrotate(fullpath):
         if exiforientation == "Rotate 90 CW": # counter-intuitive, read as rotated 90 CW and rotate 270 to correct
             flattenedfloat = numpy.rot90(flattenedfloat,k=3)
         elif exiforientation == "Rotate 180":
-            flattenedfloat = numpy.rot90(flattenedfloat,k=2)
+          if file[-1:] == 'r': # 2023 Ambrosiana is not coded correctly in metadata, go by filename
+            logger.info("Using rotation for rectos")
+            flattenedfloat = numpy.rot90(flattenedfloat,k=3) 
+          elif file[-1:] == 'v':
+            logger.info("Using rotation for versos")
+            flattenedfloat = numpy.rot90(flattenedfloat,k=1) 
+          else:
+            flattenedfloat = numpy.rot90(flattenedfloat,k=2) 
         elif exiforientation == "Rotate 90 CCW":
             flattenedfloat = numpy.rot90(flattenedfloat)
         elif exiforientation == "Rotate 270 CW":
@@ -98,14 +109,19 @@ def stacker(sigma):
 	for process in processes: 
 		stack.append(q.get())
 	stack = numpy.array(stack)
+	p.join() # added 6/17/2023
 	return stack, countinput
 # EXPOSURE
-def histogram_adjust(outpath,outfile,histograms,d3_processed,fileformats,multilayer,n_components):
+def deprecated_histogram_adjust(outpath,outfile,histograms,d3_processed,fileformats,multilayer,n_components): # deprecate 6/17/2023
 	processes = []
 	for histogram in histograms:
 		p = multiprocessing.Process(target=histogram_adjust_thread,args=(outpath,outfile,histogram,d3_processed,fileformats,multilayer,n_components))
 		processes.append(p)
 		p.start()
+		p.join() # added 6/17/2023
+def histogram_adjust(outpath,outfile,histograms,d3_processed,fileformats,multilayer,n_components):
+	for histogram in histograms:
+		histogram_adjust_thread(outpath,outfile,histogram,d3_processed,fileformats,multilayer,n_components)
 def histogram_adjust_thread(outpath,outfile,histogram,d3_processed,fileformats,multilayer,n_components):
 	if histogram == 'equalize':
 		logger.info("Performing histogram equalization")
@@ -181,12 +197,9 @@ def save_all_formats(adjusted,histogram,outpath,outfile,fileformats,multilayer,n
 				elif fileformat == 'jpg':
 					img8 = img_as_ubyte(component)
 					io.imsave(outfilec,img8,check_contrast=False)
-def nextNeededProject(projects):
-  matches = (f for f in projects if exists(basepath+f) and not exists(basepath+f+'/Transform'))
-  return next(matches,None)
 
 # GATHER INPUT
-datafile = '/home/thanneken/git/JubPalProcess/jubpaloptions.yaml'
+datafile = '/home/thanneken/git/JubPalProcess/options.yaml'
 print("Reading options from",datafile)
 with open(datafile,'r') as unparsedyaml:
     jubpaloptions = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
@@ -345,6 +358,7 @@ else: # make non-interactive choices
 		exit()
 	sigmas = jubpaloptions["options"]["sigmas"] # all listed sigmas
 	skipuvbp = True # skip files with filter distortion
+	# methods = 'fica'
 	methods = jubpaloptions["options"]["methods"] # all listed methods
 	n_components = jubpaloptions["options"]["n_components"][0] # first named number of components (max)
 	imagesets = jubpaloptions["projects"][project]["imagesets"] # use all image sets listed in the options file
@@ -398,7 +412,8 @@ for histogram in histograms:
 
 start = time.time()
 for sigma in sigmas:
-	# stack, countinput = jubpalfunctions.stacker(basepath,project,imagesets,sigma,skipuvbp,cachepath)
+	#stack, countinput = jubpalfunctions.stacker(basepath,project,imagesets,sigma,skipuvbp,cachepath)
+	# stack, countinput = jubpalfunctions.stacker(sigma)
 	stack, countinput = stacker(sigma)
 	# turn image cube into a long rectangle
 	nlayers,fullh,fullw = stack.shape
@@ -426,6 +441,7 @@ for sigma in sigmas:
 			logger.info("Processed cube is "+str(d3_processed.shape)+' '+str(d3_processed.dtype))
 			outpath_pca = join(outpath,method+'_'+roistring)
 			outfile_pca = outfile+'_'+method+'_'+roistring
+			# jubpalfunctions.histogram_adjust(outpath=outpath_pca,outfile=outfile_pca,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 			histogram_adjust(outpath=outpath_pca,outfile=outfile_pca,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 	if ('mnf' in methods):
 			method = 'mnf'
@@ -437,15 +453,19 @@ for sigma in sigmas:
 			logger.info("Calculating noise...")
 			noise = noise_from_diffs(stack[noisesamplex:noisesamplex+noisesamplew,noisesampley:noisesampley+noisesampleh,:])
 			logger.info("Calculating ratio...")
-			mnfr = mnf(signal,noise)
+			mnfr = mnf(signal,noise) # d3_processed = mnf(signal,noise)
 			# denoised = mnfr.denoise(stack,snr=10) # not sure this is doing anything
 			# d3_processed = mnfr.denoise(stack,snr=10) 
-			d3_processed = mnfr.reduce(stack,num=n_components)
+			if n_components > 12: # limit mnf to 12 in effort to address memory problem
+				logger.info("Limiting MNF to 12 components")
+				n_components == 20
+			d3_processed = mnfr.reduce(stack,num=n_components) # no need to create an extra object mnfr d3_processed = d3_processed.reduce(stack,num=n_components)
 			d3_processed = d3_processed.transpose()
 			d3_processed = img_as_float32(d3_processed)
 			logger.info("Reshaped to "+str(d3_processed.shape)+' '+str(d3_processed.dtype))
 			outpath_mnf = join(outpath,method+'_'+roistring+'n'+noisestring)
 			outfile_mnf = outfile+'_'+method+'_'+roistring+'n'+noisestring
+			# jubpalfunctions.histogram_adjust(outpath=outpath_mnf,outfile=outfile_mnf,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 			histogram_adjust(outpath=outpath_mnf,outfile=outfile_mnf,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 	if ('fica' in methods):
 			method = 'fica'
@@ -454,7 +474,7 @@ for sigma in sigmas:
 			max_iter = fica_max_iter
 			tol = fica_tol
 			fica = FastICA(n_components=n_components,max_iter=max_iter,tol=tol)
-			logger.info("Starting fit")
+			logger.info("Starting ICA fit with tolerance "+str(tol))
 			fica.fit(roi2d)
 			logger.info("Starting transform")
 			d2_processed = fica.transform(capture2d)
@@ -466,6 +486,7 @@ for sigma in sigmas:
 			logger.info("Reshaped to "+str(d3_processed.shape)+' '+str(d3_processed.dtype))
 			outpath_fica = join(outpath,method+'_'+roistring)
 			outfile_fica = outfile+'_'+method+'_'+roistring
+			# jubpalfunctions.histogram_adjust(outpath=outpath_fica,outfile=outfile_fica,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 			histogram_adjust(outpath=outpath_fica,outfile=outfile_fica,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 	if ('cca' in methods):
 			method = 'cca'
@@ -494,6 +515,7 @@ for sigma in sigmas:
 			logger.info("Reshaped to "+str(d3_processed.shape)+' '+str(d3_processed.dtype))
 			outpath_cca = join(outpath,method+'_'+roistring)
 			outfile_cca = outfile+'_'+method+'_'+roistring
+			# jubpalfunctions.histogram_adjust(outpath=outpath_cca,outfile=outfile_cca,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 			histogram_adjust(outpath=outpath_cca,outfile=outfile_cca,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 	if ('kpca' in methods):
 			method = 'kpca'
@@ -522,6 +544,7 @@ for sigma in sigmas:
 			logger.info("Reshaped to "+str(d3_processed.shape)+' '+str(d3_processed.dtype))
 			outpath_kpca = join(outpath,method+'_'+roistring)
 			outfile_kpca = outfile+'_'+method+'_'+roistring
+			# jubpalfunctions.histogram_adjust(outpath=outpath_kpca,outfile=outfile_kpca,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 			histogram_adjust(outpath=outpath_kpca,outfile=outfile_kpca,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 	if ('specembed' in methods):
 			method = 'specembed'
@@ -553,6 +576,7 @@ for sigma in sigmas:
 			logger.info("Reshaped to "+str(d3_processed.shape)+' '+str(d3_processed.dtype))
 			outpath_specembed = join(outpath,method+'_'+roistring)
 			outfile_specembed = outfile+'_'+method+'_'+roistring
+			# jubpalfunctions.histogram_adjust(outpath=outpath_specembed,outfile=outfile_specembed,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 			histogram_adjust(outpath=outpath_specembed,outfile=outfile_specembed,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 
 # REPORT DURATION

@@ -1,0 +1,362 @@
+document: processing options and data sources
+tip: options can be ordered (top is default) and commented out (if only one remains the user will not be prompted)
+options: 
+  interactive: # also possible to add 'noninteractive' argument in command line
+    - True
+    - False
+  sigmas: 
+    - 0
+    - 50
+    - 500
+    - 1000
+  skipuvbp:
+    - True
+    #- False
+  methods: 
+    - pca
+    - mnf
+    - fica
+    #- kpca  
+    #- specembed
+    #- cca
+  n_components: 
+    - max
+    #- 1
+    #- 2
+    #- 3 # this can be problematic if don't want assumed to be rgb
+    #- 5
+    - 10
+output: 
+  histograms: 
+    - equalize
+    - adaptive
+    # - rescale
+    #- none
+  multilayer:
+    - separate files
+    #- stack
+  fileformats: 
+    - jpg
+    - tif
+    #- png
+basepaths: 
+  - /storage/JubPalProj/Ambrosiana2023/Ambrosiana_F130sup/
+# - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_F130sup/
+# - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_O39sup/
+# - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_C73inf/
+# - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_A79inf/
+# - /home/thanneken/Projects/
+settings:
+  fica_max_iter: 100 # default is 100, 100000 took days, 10000 took about 4 hours
+  fica_tol: 0.0001 # default is 0.0001, 0.00001 took days, .001 fails with error, 0.01 still took a while and sometimes fails at 10k iterations
+  cachepath: /storage/JubPalProj/cache/
+  logfile: /home/thanneken/logs/jubpalprocess.log
+projects:
+#   Ambrosiana_F130sup_test1:
+#     rois:
+#       roi01:
+#         x: 2000
+#         y: 800
+#         w: 1024
+#         h: 1024
+#         label: "Upper Left"
+#     noisesamples:
+#       noise01:
+#         x: 360
+#         y: 1000
+#         w: 800
+#         h: 800
+#         label: "Left Margin"
+#     imagesets: 
+#       - Raw
+#     flats: "../Calibration/Flats_D20170116-T140129/"
+#   Ambrosiana_F130sup_test2:
+#     rois: 
+#       roi01:
+#         x: 1100
+#         y: 5000
+#         w: 1024
+#         h: 1024
+#         label: "No reagent"
+#       roi02:
+#         x: 3300
+#         y: 1200
+#         w: 1024
+#         h: 1024
+#         label: "Reagent"
+#     noisesamples:
+#       noise01:
+#         x: 2580
+#         y: 4288
+#         w: 172
+#         h: 316
+#         label: "Overtext, parchment, no reagent, no undertext"
+#       noise02:
+#         x: 2544
+#         y: 1188
+#         w: 396
+#         h: 660
+#         label: "Overtext, parchment, reagent, no undertext"
+#     imagesets:
+#       - Raw
+#     flats: "../Calibration/Flats_D20170116-T140129/"
+  Ambrosiana_F130sup_001r:
+    rois:
+      roi1:
+        x: 2554
+        y: 3576
+        w: 1024
+        h: 1024
+        label: "Dead Center"
+    noisesamples:
+      noise01:
+        x: 4700
+        y: 3400
+        w: 512
+        h: 512
+        label: "Right Margin Generally"
+    imagesets: 
+      - Fluorescence
+      - Reflectance
+      - Transmissive
+    flats: "../Calibration/Flats_D20230615-T151702/"
+  Ambrosiana_F130sup_002r:
+    rois:
+      roi1:
+        x: 2554
+        y: 3576
+        w: 1024
+        h: 1024
+        label: "Dead Center"
+    noisesamples:
+      noise01:
+        x: 4700
+        y: 3400
+        w: 512
+        h: 512
+        label: "Right Margin Generally"
+    imagesets: 
+      - Fluorescence
+      - Reflectance
+      - Transmissive
+    flats: "../Calibration/Flats_D20230615-T151702/"
+  Ambrosiana_F130sup_003r:
+    rois:
+      roi1:
+        x: 2554
+        y: 3576
+        w: 1024
+        h: 1024
+        label: "Dead Center"
+    noisesamples:
+      noise01:
+        x: 4700
+        y: 3400
+        w: 512
+        h: 512
+        label: "Right Margin Generally"
+    imagesets: 
+      - Fluorescence
+      - Reflectance
+      - Transmissive
+    flats: "../Calibration/Flats_D20230615-T151702/"
+  Ambrosiana_F130sup_004r:
+    rois:
+      roi1:
+        x: 2554
+        y: 3576
+        w: 1024
+        h: 1024
+        label: "Dead Center"
+    noisesamples:
+      noise01:
+        x: 4700
+        y: 3400
+        w: 512
+        h: 512
+        label: "Right Margin Generally"
+    imagesets: 
+      - Fluorescence
+      - Reflectance
+      - Transmissive
+    flats: "../Calibration/Flats_D20230615-T151702/"
+  Ambrosiana_F130sup_005r:
+    rois:
+      roi1:
+        x: 2554
+        y: 3576
+        w: 1024
+        h: 1024
+        label: "Dead Center"
+    noisesamples:
+      noise01:
+        x: 4700
+        y: 3400
+        w: 512
+        h: 512
+        label: "Right Margin Generally"
+    imagesets: 
+      - Fluorescence
+      - Reflectance
+      - Transmissive
+    flats: "../Calibration/Flats_D20230615-T151702/"
+  Ambrosiana_F130sup_006r:
+    rois:
+      roi1:
+        x: 2554
+        y: 3576
+        w: 1024
+        h: 1024
+        label: "Dead Center"
+    noisesamples:
+      noise01:
+        x: 4700
+        y: 3400
+        w: 512
+        h: 512
+        label: "Right Margin Generally"
+    imagesets: 
+      - Fluorescence
+      - Reflectance
+      - Transmissive
+    flats: "../Calibration/Flats_D20230615-T151702/"
+  Ambrosiana_F130sup_007r:
+    rois:
+      roi1:
+        x: 2554
+        y: 3576
+        w: 1024
+        h: 1024
+        label: "Dead Center"
+    noisesamples:
+      noise01:
+        x: 4700
+        y: 3400
+        w: 512
+        h: 512
+        label: "Right Margin Generally"
+    imagesets: 
+      - Fluorescence
+      - Reflectance
+      - Transmissive
+    flats: "../Calibration/Flats_D20230615-T151702/"
+  Ambrosiana_F130sup_008r:
+    rois:
+      roi1:
+        x: 2554
+        y: 3576
+        w: 1024
+        h: 1024
+        label: "Dead Center"
+    noisesamples:
+      noise01:
+        x: 4700
+        y: 3400
+        w: 512
+        h: 512
+        label: "Right Margin Generally"
+    imagesets: 
+      - Fluorescence
+      - Reflectance
+      - Transmissive
+    flats: "../Calibration/Flats_D20230615-T151702/"
+  Ambrosiana_F130sup_009r:
+    rois:
+      roi1:
+        x: 2554
+        y: 3576
+        w: 1024
+        h: 1024
+        label: "Dead Center"
+    noisesamples:
+      noise01:
+        x: 4700
+        y: 3400
+        w: 512
+        h: 512
+        label: "Right Margin Generally"
+    imagesets: 
+      - Fluorescence
+      - Reflectance
+      - Transmissive
+    flats: "../Calibration/Flats_D20230615-T151702/"
+  Ambrosiana_F130sup_010r:
+    rois:
+      roi1:
+        x: 2554
+        y: 3576
+        w: 1024
+        h: 1024
+        label: "Dead Center"
+    noisesamples:
+      noise01:
+        x: 4700
+        y: 3400
+        w: 512
+        h: 512
+        label: "Right Margin Generally"
+    imagesets: 
+      - Fluorescence
+      - Reflectance
+      - Transmissive
+    flats: "../Calibration/Flats_D20230615-T151702/"
+  Ambrosiana_F130sup_011r:
+    rois:
+      roi1:
+        x: 2554
+        y: 3576
+        w: 1024
+        h: 1024
+        label: "Dead Center"
+    noisesamples:
+      noise01:
+        x: 4700
+        y: 3400
+        w: 512
+        h: 512
+        label: "Right Margin Generally"
+    imagesets: 
+      - Fluorescence
+      - Reflectance
+      - Transmissive
+    flats: "../Calibration/Flats_D20230615-T151702/"
+  Ambrosiana_F130sup_012r:
+    rois:
+      roi1:
+        x: 2554
+        y: 3576
+        w: 1024
+        h: 1024
+        label: "Dead Center"
+    noisesamples:
+      noise01:
+        x: 4700
+        y: 3400
+        w: 512
+        h: 512
+        label: "Right Margin Generally"
+    imagesets: 
+      - Fluorescence
+      - Reflectance
+      - Transmissive
+    flats: "../Calibration/Flats_D20230615-T151702/"
+  Ambrosiana_F130sup_013r:
+    rois:
+      roi1:
+        x: 2554
+        y: 3576
+        w: 1024
+        h: 1024
+        label: "Dead Center"
+    noisesamples:
+      noise01:
+        x: 4700
+        y: 3400
+        w: 512
+        h: 512
+        label: "Right Margin Generally"
+    imagesets: 
+      - Fluorescence
+      - Reflectance
+      - Transmissive
+    flats: "../Calibration/Flats_D20230615-T151702/"

@@ -8,8 +8,6 @@ import rawpy
 import pyexifinfo
 import logging
 
-# as of June 11, 2023 the functions are moved into jubpalprocess.py and this file deprecated
-
 def blurdivide(img,sigma):
 	if not img.dtype == "float32":
 		img = img_as_float32(img)
@@ -29,7 +27,8 @@ def flattenrotate(fullpath):
             capture = raw.raw_image.copy()
         exif = pyexifinfo.get_json(fullpath)
         exifflat = exif[0]["IPTC:Keywords"][11] # was index 11 n array of keywords in 2017, likely to be different in 2023
-        exifflat = exifflat+'g' # the last letter got cut off in 2017, likely to be different in 2023
+        if exifflat.endswith('.dn'):
+          exifflat = exifflat+'g' # the last letter got cut off in 2017, likely to be different in 2023
         exiforientation = exif[0]["EXIF:Orientation"]
         flatsdir = jubpaloptions["projects"][project]["flats"] 
         flatpath = basepath+flatsdir+exifflat
@@ -47,7 +46,14 @@ def flattenrotate(fullpath):
         if exiforientation == "Rotate 90 CW": # counter-intuitive, read as rotated 90 CW and rotate 270 to correct
             flattenedfloat = numpy.rot90(flattenedfloat,k=3)
         elif exiforientation == "Rotate 180":
-            flattenedfloat = numpy.rot90(flattenedfloat,k=2)
+          if file[-1:] == 'r': # 2023 Ambrosiana is not coded correctly in metadata, go by filename
+            logger.info("Using rotation for rectos")
+            flattenedfloat = numpy.rot90(flattenedfloat,k=3) 
+          elif file[-1:] == 'v':
+            logger.info("Using rotation for versos")
+            flattenedfloat = numpy.rot90(flattenedfloat,k=1) 
+          else:
+            flattenedfloat = numpy.rot90(flattenedfloat,k=2) 
         elif exiforientation == "Rotate 90 CCW":
             flattenedfloat = numpy.rot90(flattenedfloat)
         elif exiforientation == "Rotate 270 CW":
@@ -55,7 +61,7 @@ def flattenrotate(fullpath):
         # save flat to cache
         flattenedfloat = img_as_float32(flattenedfloat)
         makedirs(cachepath+'flattened/',mode=0o755,exist_ok=True)
-        io.imsave(cachepath+'flattened/'+file+'.tif',flattenedfloat)
+        io.imsave(cachepath+'flattened/'+file+'.tif',flattenedfloat,check_contrast=False)
     return flattenedfloat
 def readnblur(q,fullpath,sigma):
     file = fullpath.split('/')[-1][:-4] 
@@ -73,7 +79,7 @@ def readnblur(q,fullpath,sigma):
             img = blurdivide(img,sigma)
             img = exposure.rescale_intensity(img)
             makedirs(cachepath+'denoise/sigma'+str(sigma)+'/',mode=0o755,exist_ok=True)
-            io.imsave(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif',img)
+            io.imsave(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif',img,check_contrast=False)
     q.put(img)
 #def stacker(basepath,project,imagesets,sigma,skipuvbp,cachepath):
 def stacker(sigma):
@@ -147,20 +153,20 @@ def save_all_formats(adjusted,histogram,outpath,outfile,fileformats,multilayer,n
 			outfile_current = outfile_current+'.'+fileformat
 			logger.info("Saving "+outfile_current)
 			img32 = img_as_float32(adjusted)
-			io.imsave(outfile_current,img32)
+			io.imsave(outfile_current,img32,check_contrast=False)
 		elif n_components == 1:
 			outfile_current = outfile_current+'.'+fileformat
 			component = adjusted[0,:,:]
 			logger.info("Saving "+outfile_current)
 			if fileformat == 'tif':
 				img32 = img_as_float32(component)
-				io.imsave(outfile_current,img32)
+				io.imsave(outfile_current,img32,check_contrast=False)
 			elif fileformat == 'png':
 				img16 = img_as_uint(component)
-				io.imsave(outfile_current,img16)
+				io.imsave(outfile_current,img16,check_contrast=False)
 			elif fileformat == 'jpg':
 				img8 = img_as_ubyte(component)
-				io.imsave(outfile_current,img8)
+				io.imsave(outfile_current,img8,check_contrast=False)
 		elif multilayer == 'separate files':
 			for i in range (0,n_components):
 				outfilec = outfile_current+'_c'+str(f"{i:02d}")+'.'+fileformat
@@ -168,12 +174,13 @@ def save_all_formats(adjusted,histogram,outpath,outfile,fileformats,multilayer,n
 				component = adjusted[i,:,:]
 				if fileformat == 'tif':
 					img32 = img_as_float32(component)
-					io.imsave(outfilec,img32)
+					io.imsave(outfilec,img32,check_contrast=False)
 				elif fileformat == 'png':
 					img16 = img_as_uint(component)
-					io.imsave(outfilec,img16)
+					io.imsave(outfilec,img16,check_contrast=False)
 				elif (fileformat=='jpg' and histogram=='none'):
 					logger.warn("Can't save floating point to jpeg without at least some histogram adjustment")
 				elif fileformat == 'jpg':
 					img8 = img_as_ubyte(component)
-					io.imsave(outfilec,img8)
+					io.imsave(outfilec,img8,check_contrast=False)
+
