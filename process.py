@@ -15,8 +15,8 @@ import sys
 
 # DEFINE OUR FUNCTIONS
 def nextNeededProject(projects):
-  matches = (f for f in projects if exists(basepath+f) and not exists(basepath+f+'/Transform'))
-  return next(matches,None)
+	matches = (f for f in projects if exists(basepath+f) and not exists(basepath+f+'/Transform'))
+	return next(matches,None)
 def blurdivide(img,sigma):
 	if not img.dtype == "float32":
 		img = img_as_float32(img)
@@ -27,69 +27,69 @@ def blurdivide(img,sigma):
 	ratio = numerator / denominator
 	return ratio
 def flattenrotate(fullpath):
-    file = fullpath.split('/')[-1][:-4] # filename is everything after the last forward slash, and remove the extension too
-    if exists(cachepath+'flattened/'+file+'.tif'): # check cache
-        logger.info("Found in cache: flattened/"+file+'.tif')
-        flattenedfloat = io.imread(cachepath+'flattened/'+file+'.tif')
-    else:
-        with rawpy.imread(fullpath) as raw:
-            capture = raw.raw_image.copy()
-        exif = pyexifinfo.get_json(fullpath)
-        exifflat = exif[0]["IPTC:Keywords"][11] # was index 11 n array of keywords in 2017, likely to be different in 2023
-        if exifflat.endswith('.dn'):
-          exifflat = exifflat+'g' # the last letter got cut off in 2017, likely to be different in 2023
-        exiforientation = exif[0]["EXIF:Orientation"]
-        flatsdir = jubpaloptions["projects"][project]["flats"] 
-        flatpath = basepath+flatsdir+exifflat
-        if not exists(flatpath): # if metadata doesn't work look for file in directory with right index number
-            logger.info("According to EXIF, flat is "+flatpath) 
-            for flatfile in listdir(basepath+flatsdir): 
-                if flatfile[-7:] == fullpath[-7:]:
-                    flatpath = basepath+flatsdir+flatfile
-                    logger.info("EXIF identified flat not found, flat with same index number is "+flatpath)
-        with rawpy.imread(flatpath) as raw:
-            flat = raw.raw_image.copy()
-        # flattenedfloat = capture*numpy.average(flat)/flat
-        # np.divide(a, b, out=np.zeros_like(a), where=b!=0)
-        flattenedfloat = numpy.divide(capture*numpy.average(flat),flat,out=numpy.zeros_like(capture*numpy.average(flat)),where=flat!=0)
-        if exiforientation == "Rotate 90 CW": # counter-intuitive, read as rotated 90 CW and rotate 270 to correct
-            flattenedfloat = numpy.rot90(flattenedfloat,k=3)
-        elif exiforientation == "Rotate 180":
-          if file[-1:] == 'r': # 2023 Ambrosiana is not coded correctly in metadata, go by filename
-            logger.info("Using rotation for rectos")
-            flattenedfloat = numpy.rot90(flattenedfloat,k=3) 
-          elif file[-1:] == 'v':
-            logger.info("Using rotation for versos")
-            flattenedfloat = numpy.rot90(flattenedfloat,k=1) 
-          else:
-            flattenedfloat = numpy.rot90(flattenedfloat,k=2) 
-        elif exiforientation == "Rotate 90 CCW":
-            flattenedfloat = numpy.rot90(flattenedfloat)
-        elif exiforientation == "Rotate 270 CW":
-            flattenedfloat = numpy.rot90(flattenedfloat)
-        # save flat to cache
-        flattenedfloat = img_as_float32(flattenedfloat)
-        makedirs(cachepath+'flattened/',mode=0o755,exist_ok=True)
-        io.imsave(cachepath+'flattened/'+file+'.tif',flattenedfloat,check_contrast=False)
-    return flattenedfloat
+		file = fullpath.split('/')[-1][:-4] # filename is everything after the last forward slash, and remove the extension too
+		if exists(cachepath+'flattened/'+file+'.tif'): # check cache
+				logger.info("Found in cache: flattened/"+file+'.tif')
+				flattenedfloat = io.imread(cachepath+'flattened/'+file+'.tif')
+		else:
+				with rawpy.imread(fullpath) as raw:
+						capture = raw.raw_image.copy()
+				exif = pyexifinfo.get_json(fullpath)
+				exifflat = exif[0]["IPTC:Keywords"][11] # was index 11 n array of keywords in 2017, likely to be different in 2023
+				if exifflat.endswith('.dn'):
+					exifflat = exifflat+'g' # the last letter got cut off in 2017, likely to be different in 2023
+				exiforientation = exif[0]["EXIF:Orientation"]
+				flatsdir = jubpaloptions["projects"][project]["flats"] 
+				flatpath = basepath+flatsdir+exifflat
+				if not exists(flatpath): # if metadata doesn't work look for file in directory with right index number
+						logger.info("According to EXIF, flat is "+flatpath) 
+						for flatfile in listdir(basepath+flatsdir): 
+								if flatfile[-7:] == fullpath[-7:]:
+										flatpath = basepath+flatsdir+flatfile
+										logger.info("EXIF identified flat not found, flat with same index number is "+flatpath)
+				with rawpy.imread(flatpath) as raw:
+						flat = raw.raw_image.copy()
+				# flattenedfloat = capture*numpy.average(flat)/flat
+				# np.divide(a, b, out=np.zeros_like(a), where=b!=0)
+				flattenedfloat = numpy.divide(capture*numpy.average(flat),flat,out=numpy.zeros_like(capture*numpy.average(flat)),where=flat!=0)
+				if exiforientation == "Rotate 90 CW": # counter-intuitive, read as rotated 90 CW and rotate 270 to correct
+						flattenedfloat = numpy.rot90(flattenedfloat,k=3)
+				elif exiforientation == "Rotate 180":
+					if file[11:12] == 'r': # 2023 Ambrosiana is not coded correctly in metadata, go by filename
+						logger.info("Using rotation for rectos")
+						flattenedfloat = numpy.rot90(flattenedfloat,k=3) 
+					elif file[11:12] == 'v':
+						logger.info("Using rotation for versos")
+						flattenedfloat = numpy.rot90(flattenedfloat,k=1) 
+					else:
+						flattenedfloat = numpy.rot90(flattenedfloat,k=2) 
+				elif exiforientation == "Rotate 90 CCW":
+						flattenedfloat = numpy.rot90(flattenedfloat)
+				elif exiforientation == "Rotate 270 CW":
+						flattenedfloat = numpy.rot90(flattenedfloat)
+				# save flat to cache
+				flattenedfloat = img_as_float32(flattenedfloat)
+				makedirs(cachepath+'flattened/',mode=0o755,exist_ok=True)
+				io.imsave(cachepath+'flattened/'+file+'.tif',flattenedfloat,check_contrast=False)
+		return flattenedfloat
 def readnblur(q,fullpath,sigma):
-    file = fullpath.split('/')[-1][:-4] 
-    if exists(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif'): 
-        logger.info(file+".tif found in cache")
-        img = io.imread(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif')
-    else:
-        logger.info("Reading "+fullpath)
-        if (fullpath.endswith('.tif')): # if ends in tif then read
-            img = io.imread(fullpath)
-            img = img_as_float32(img)
-        elif (fullpath.endswith('.dng')): # if ends in dng then flatten and rotate
-            img = flattenrotate(fullpath)
-        if (sigma > 0):
-            img = blurdivide(img,sigma)
-            img = exposure.rescale_intensity(img)
-            makedirs(cachepath+'denoise/sigma'+str(sigma)+'/',mode=0o755,exist_ok=True)
-            io.imsave(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif',img,check_contrast=False)
-    q.put(img)
+		file = fullpath.split('/')[-1][:-4] 
+		if exists(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif'): 
+				logger.info(file+".tif found in cache")
+				img = io.imread(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif')
+		else:
+				logger.info("Reading "+fullpath)
+				if (fullpath.endswith('.tif')): # if ends in tif then read
+						img = io.imread(fullpath)
+						img = img_as_float32(img)
+				elif (fullpath.endswith('.dng')): # if ends in dng then flatten and rotate
+						img = flattenrotate(fullpath)
+				if (sigma > 0):
+						img = blurdivide(img,sigma)
+						img = exposure.rescale_intensity(img)
+						makedirs(cachepath+'denoise/sigma'+str(sigma)+'/',mode=0o755,exist_ok=True)
+						io.imsave(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif',img,check_contrast=False)
+		q.put(img)
 #def stacker(basepath,project,imagesets,sigma,skipuvbp,cachepath):
 def stacker(sigma):
 	countinput = 0 
@@ -127,7 +127,7 @@ def histogram_adjust_thread(outpath,outfile,histogram,d3_processed,fileformats,m
 		logger.info("Performing histogram equalization")
 		adjusted_eq = d3_processed
 		for i in range (0,n_components):
-			adjusted_eq[i,:,:]  = exposure.equalize_hist(adjusted_eq[i,:,:])
+			adjusted_eq[i,:,:]	= exposure.equalize_hist(adjusted_eq[i,:,:])
 		outpath_h = join(outpath,histogram)
 		outfile_h = outfile+'_'+histogram
 		save_all_formats(adjusted=adjusted_eq,histogram=histogram,outpath=outpath_h,outfile=outfile_h,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
@@ -135,7 +135,7 @@ def histogram_adjust_thread(outpath,outfile,histogram,d3_processed,fileformats,m
 		logger.info("Performing histogram rescale")
 		adjusted_rs = d3_processed
 		for i in range (0,n_components):
-			adjusted_rs[i,:,:]  = exposure.rescale_intensity(adjusted_rs[i,:,:])
+			adjusted_rs[i,:,:]	= exposure.rescale_intensity(adjusted_rs[i,:,:])
 		outpath_h = join(outpath,histogram)
 		outfile_h = outfile+'_'+histogram
 		save_all_formats(adjusted=adjusted_rs,histogram=histogram,outpath=outpath_h,outfile=outfile_h,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
@@ -202,7 +202,7 @@ def save_all_formats(adjusted,histogram,outpath,outfile,fileformats,multilayer,n
 datafile = '/home/thanneken/git/JubPalProcess/options.yaml'
 print("Reading options from",datafile)
 with open(datafile,'r') as unparsedyaml:
-    jubpaloptions = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
+		jubpaloptions = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
 ## read non-interactive options
 cachepath = jubpaloptions["settings"]["cachepath"]
 fica_max_iter = jubpaloptions["settings"]["fica_max_iter"]
@@ -231,21 +231,21 @@ else:
 	interactive = jubpaloptions["options"]["interactive"][0]
 
 if interactive == True:
-  ## select one basepath
+	## select one basepath
 	if len(jubpaloptions["basepaths"]) > 1:
 		questions = [inquirer.List('basepath',"Select basepath for source data",choices=jubpaloptions["basepaths"])]
 		selections = inquirer.prompt(questions)
 		basepath = selections["basepath"]
 	else:
 		basepath = jubpaloptions["basepaths"][0]
-  ## select one project
+	## select one project
 	if len(jubpaloptions["projects"].keys()) > 1:
 		questions = [ inquirer.List('project',"Select project",choices=jubpaloptions["projects"].keys()) ]
 		selections = inquirer.prompt(questions)
 		project = selections["project"]
 	else:
 		project = jubpaloptions["projects"].keys()[0]
-  ## select one or more sigma for blur and divide
+	## select one or more sigma for blur and divide
 	if len(jubpaloptions["options"]["sigmas"]) > 1:
 		questions = [ inquirer.Checkbox('sigmas',"Sigma for RLE blur and divide?",choices=jubpaloptions["options"]["sigmas"]) ]
 		sigmas = []
@@ -254,14 +254,14 @@ if interactive == True:
 			sigmas = selections["sigmas"] 
 	else:
 		sigmas = jubpaloptions["options"]["sigmas"][0]
-  ## select one of skipuvbp boolean
+	## select one of skipuvbp boolean
 	if len(jubpaloptions["options"]["skipuvbp"]) > 1:
 		questions = [ inquirer.List('skipuvbp',"Skip files with UVB_ or UVP_ in filename?",choices=jubpaloptions["options"]["skipuvbp"]) ]
 		selections = inquirer.prompt(questions)
 		skipuvbp = selections["skipuvbp"]
 	else:
 		skipuvbp = jubpaloptions["options"]["skipuvbp"][0]
-  ## select one or more methods
+	## select one or more methods
 	if len(jubpaloptions["options"]["methods"]) > 1:
 		questions = [ inquirer.Checkbox('methods',"Select Process",choices=jubpaloptions["options"]["methods"]) ]
 		methods = []
@@ -271,14 +271,14 @@ if interactive == True:
 		methods = selections["methods"]
 	else:
 		methods = jubpaloptions["options"]["methods"][0]
-  ## select one number of components
+	## select one number of components
 	if len(jubpaloptions["options"]["n_components"]) > 1:
 		questions = [ inquirer.List('n_components',"How many components to generate?",choices=jubpaloptions["options"]["n_components"]) ]
 		selections = inquirer.prompt(questions)
 		n_components = selections["n_components"]
 	else:
 		n_components = jubpaloptions["options"]["n_components"][0]
-  ## select one or more image sets
+	## select one or more image sets
 	if len(jubpaloptions["projects"][project]["imagesets"]) > 1:
 		questions = [ inquirer.Checkbox('imagesets',"Select one or more image sets",choices=jubpaloptions["projects"][project]["imagesets"]) ]
 		imagesets = []
@@ -287,7 +287,7 @@ if interactive == True:
 			imagesets = selections["imagesets"]
 	else:
 		imagesets = jubpaloptions["projects"][project]["imagesets"]
-  ## select one roi, eventually one or more
+	## select one roi, eventually one or more
 	if len(jubpaloptions["projects"][project]["rois"].keys()) > 1:
 		questions = [
 			inquirer.List('roi',"Select region of interest",choices=jubpaloptions["projects"][project]["rois"].keys())
@@ -301,7 +301,7 @@ if interactive == True:
 	roiw = jubpaloptions["projects"][project]["rois"][roi]["w"]
 	roih = jubpaloptions["projects"][project]["rois"][roi]["h"]
 	roilabel = jubpaloptions["projects"][project]["rois"][roi]["label"]
-  ## select noise sample for mnf 
+	## select noise sample for mnf 
 	if ('mnf' in methods):
 			if len(jubpaloptions["projects"][project]["noisesamples"].keys()) > 1:
 				questions = [
@@ -317,7 +317,7 @@ if interactive == True:
 			noisesampleh = jubpaloptions["projects"][project]["noisesamples"][noisesample]["h"]
 			noisesamplelabel = jubpaloptions["projects"][project]["noisesamples"][noisesample]["label"]
 			noisestring = 'x'+str(noisesamplex)+'y'+str(noisesampley)+'w'+str(noisesamplew)+'h'+str(noisesampleh)
-  ## select one or more histogram adjustments
+	## select one or more histogram adjustments
 	if len(jubpaloptions["output"]["histograms"]) > 1:
 		questions = [ inquirer.Checkbox('histograms',"Select histogram adjustment(s) for final product",choices=jubpaloptions["output"]["histograms"]) ]
 		histograms = []
@@ -326,21 +326,21 @@ if interactive == True:
 			histograms = selections["histograms"]
 	else:
 		histograms = jubpaloptions["output"]["histogram"][0]
-  ## select multilayer as stack or separate files
+	## select multilayer as stack or separate files
 	if len(jubpaloptions["output"]["multilayer"]) > 1:
 		questions = [ inquirer.List('multilayer',"Select what to do with multiple layers",choices=jubpaloptions["output"]["multilayer"]) ]
 		selections = inquirer.prompt(questions)
 		multilayer = selections["multilayer"]
 	else:
 		multilayer = jubpaloptions["output"]["multilayer"][0]
-  ## select one output path
+	## select one output path
 	if len(jubpaloptions["basepaths"]) > 1:
 		questions = [ inquirer.List('basepathout',"Select basepath for output (project name is implicit)",choices=jubpaloptions["basepaths"]) ]
 		selections = inquirer.prompt(questions)
 		basepathout = selections["basepathout"] 
 	else:
 		basepathout = jubpaloptions["basepaths"][0]
-  ## select one or more fileformat
+	## select one or more fileformat
 	if len(jubpaloptions["output"]["fileformats"]) > 1:
 		questions = [ inquirer.Checkbox('fileformats',"Select file format(s) to output",choices=jubpaloptions["output"]["fileformats"]) ]
 		fileformats = []
@@ -378,7 +378,7 @@ else: # make non-interactive choices
 		noisestring = 'x'+str(noisesamplex)+'y'+str(noisesampley)+'w'+str(noisesamplew)+'h'+str(noisesampleh)
 	histograms = ['equalize','adaptive'] # produce equalized and adaptive histograms, not rescale or none
 	multilayer = 'separate files'
-	basepathout = basepath  # put it in the same directory in non-interactive mode
+	basepathout = basepath	# put it in the same directory in non-interactive mode
 	fileformats = ['jpg']
 
 if exists(logfile): 
