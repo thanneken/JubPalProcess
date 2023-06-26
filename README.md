@@ -6,7 +6,7 @@ Python tools for processing images from multispectral data of cultural heritage 
 This is a public alpha for users already comfortable in Python and YAML. 
 Users will need to edit the path to Python in `process.py` and install all dependencies. 
 Subsequently, basic changes will be made in `options.yaml` following the examples provided. 
-Selections from among those options are made in an interactive command-line interface upon running `palprocess.py`.
+Selections from among those options are made in an interactive command-line interface upon running `process.py`.
 A non-interactive mode assuming coded defaults can be started by adding the argument “noninteractive” to the command line. 
 
 ## Features 
