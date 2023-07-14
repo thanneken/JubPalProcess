@@ -24,7 +24,9 @@ def blurdivide(img,sigma):
 	numerator = filters.median(img) # default is 3x3, same as RLE suggested
 	# print("Creating a denominator with radius/sigma = 50 Gaussian blur on denominator (RLE does 101x101 box blur)")
 	denominator = filters.gaussian(img,sigma=sigma)
-	ratio = numerator / denominator
+	# ratio = numerator / denominator
+	# flattenedfloat = numpy.divide(capture*numpy.average(flat),flat,out=numpy.zeros_like(capture*numpy.average(flat)),where=flat!=0)
+	ratio = numpy.divide(numerator,denominator,out=numpy.zeros_like(numerator),where=denominator!=0)
 	return ratio
 def flattenrotate(fullpath):
 		file = fullpath.split('/')[-1][:-4] # filename is everything after the last forward slash, and remove the extension too
@@ -357,8 +359,9 @@ else: # make non-interactive choices
 		logger.info("No projects defined in "+datafile+" in the first named basepath lack a Transform directory")
 		exit()
 	sigmas = jubpaloptions["options"]["sigmas"] # all listed sigmas
-	skipuvbp = True # skip files with filter distortion
+	skipuvbp = jubpaloptions["options"]["skipuvbp"][0] # top option for Skip UVB and UVP
 	# methods = 'fica'
+	# methods = ['pca','mnf'] # do only pca and mnf  in non-interactive mode, go back and do fica manually
 	methods = jubpaloptions["options"]["methods"] # all listed methods
 	n_components = jubpaloptions["options"]["n_components"][0] # first named number of components (max)
 	imagesets = jubpaloptions["projects"][project]["imagesets"] # use all image sets listed in the options file
@@ -428,21 +431,27 @@ for sigma in sigmas:
 	roi2d = roi2d.transpose()
 	outpath = join(basepathout,project,'Transform/r'+str(countinput)+'bd'+str(sigma))
 	outfile = project+'_r'+str(countinput)+'_bd'+str(sigma)
-	if ('pca' in methods):
-			method = 'pca'
-			from sklearn.decomposition import PCA
-			pca = PCA(n_components=n_components)
-			logger.info("Starting fit")
-			pca.fit(roi2d)
+	if ('fica' in methods):
+			method = 'fica'
+			from sklearn.decomposition import FastICA
+			# UserWarning: FastICA did not converge. Consider increasing tolerance or the maximum number of iterations.
+			max_iter = fica_max_iter
+			tol = fica_tol
+			fica = FastICA(n_components=n_components,max_iter=max_iter,tol=tol)
+			logger.info("Starting ICA fit with tolerance "+str(tol))
+			fica.fit(roi2d)
 			logger.info("Starting transform")
-			d2_processed = pca.transform(capture2d)
+			d2_processed = fica.transform(capture2d)
+			d2_processed = img_as_float32(d2_processed)
+			logger.info("Processed 2d is "+str(d2_processed.shape)+' '+str(d2_processed.dtype))
 			d2_processed = d2_processed.transpose()
+			logger.info("Transposed to "+str(d2_processed.shape)+' '+str(d2_processed.dtype))
 			d3_processed = d2_processed.reshape(n_components,fullh,fullw)
-			logger.info("Processed cube is "+str(d3_processed.shape)+' '+str(d3_processed.dtype))
-			outpath_pca = join(outpath,method+'_'+roistring)
-			outfile_pca = outfile+'_'+method+'_'+roistring
-			# jubpalfunctions.histogram_adjust(outpath=outpath_pca,outfile=outfile_pca,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
-			histogram_adjust(outpath=outpath_pca,outfile=outfile_pca,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
+			logger.info("Reshaped to "+str(d3_processed.shape)+' '+str(d3_processed.dtype))
+			outpath_fica = join(outpath,method+'_'+roistring)
+			outfile_fica = outfile+'_'+method+'_'+roistring
+			# jubpalfunctions.histogram_adjust(outpath=outpath_fica,outfile=outfile_fica,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
+			histogram_adjust(outpath=outpath_fica,outfile=outfile_fica,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 	if ('mnf' in methods):
 			method = 'mnf'
 			from spectral import calc_stats, noise_from_diffs, mnf
@@ -467,27 +476,21 @@ for sigma in sigmas:
 			outfile_mnf = outfile+'_'+method+'_'+roistring+'n'+noisestring
 			# jubpalfunctions.histogram_adjust(outpath=outpath_mnf,outfile=outfile_mnf,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 			histogram_adjust(outpath=outpath_mnf,outfile=outfile_mnf,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
-	if ('fica' in methods):
-			method = 'fica'
-			from sklearn.decomposition import FastICA
-			# UserWarning: FastICA did not converge. Consider increasing tolerance or the maximum number of iterations.
-			max_iter = fica_max_iter
-			tol = fica_tol
-			fica = FastICA(n_components=n_components,max_iter=max_iter,tol=tol)
-			logger.info("Starting ICA fit with tolerance "+str(tol))
-			fica.fit(roi2d)
+	if ('pca' in methods):
+			method = 'pca'
+			from sklearn.decomposition import PCA
+			pca = PCA(n_components=n_components)
+			logger.info("Starting fit")
+			pca.fit(roi2d)
 			logger.info("Starting transform")
-			d2_processed = fica.transform(capture2d)
-			d2_processed = img_as_float32(d2_processed)
-			logger.info("Processed 2d is "+str(d2_processed.shape)+' '+str(d2_processed.dtype))
+			d2_processed = pca.transform(capture2d)
 			d2_processed = d2_processed.transpose()
-			logger.info("Transposed to "+str(d2_processed.shape)+' '+str(d2_processed.dtype))
 			d3_processed = d2_processed.reshape(n_components,fullh,fullw)
-			logger.info("Reshaped to "+str(d3_processed.shape)+' '+str(d3_processed.dtype))
-			outpath_fica = join(outpath,method+'_'+roistring)
-			outfile_fica = outfile+'_'+method+'_'+roistring
-			# jubpalfunctions.histogram_adjust(outpath=outpath_fica,outfile=outfile_fica,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
-			histogram_adjust(outpath=outpath_fica,outfile=outfile_fica,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
+			logger.info("Processed cube is "+str(d3_processed.shape)+' '+str(d3_processed.dtype))
+			outpath_pca = join(outpath,method+'_'+roistring)
+			outfile_pca = outfile+'_'+method+'_'+roistring
+			# jubpalfunctions.histogram_adjust(outpath=outpath_pca,outfile=outfile_pca,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
+			histogram_adjust(outpath=outpath_pca,outfile=outfile_pca,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 	if ('cca' in methods):
 			method = 'cca'
 			logger.info("starting method cca")
