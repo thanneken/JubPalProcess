@@ -6,7 +6,6 @@ from os.path import exists, join
 import time 
 import yaml 
 import inquirer
-# import jubpalfunctions ## just put all the functions in this file, avoids having to send variables
 import numpy 
 import rawpy
 import pyexifinfo
@@ -20,12 +19,8 @@ def nextNeededProject(projects):
 def blurdivide(img,sigma):
 	if not img.dtype == "float32":
 		img = img_as_float32(img)
-	# print("Creating a numerator as 3x3 median")
 	numerator = filters.median(img) # default is 3x3, same as RLE suggested
-	# print("Creating a denominator with radius/sigma = 50 Gaussian blur on denominator (RLE does 101x101 box blur)")
 	denominator = filters.gaussian(img,sigma=sigma)
-	# ratio = numerator / denominator
-	# flattenedfloat = numpy.divide(capture*numpy.average(flat),flat,out=numpy.zeros_like(capture*numpy.average(flat)),where=flat!=0)
 	ratio = numpy.divide(numerator,denominator,out=numpy.zeros_like(numerator),where=denominator!=0)
 	return ratio
 def flattenrotate(fullpath):
@@ -41,7 +36,7 @@ def flattenrotate(fullpath):
 				if exifflat.endswith('.dn'):
 					exifflat = exifflat+'g' # the last letter got cut off in 2017, likely to be different in 2023
 				exiforientation = exif[0]["EXIF:Orientation"]
-				flatsdir = jubpaloptions["projects"][project]["flats"] 
+				flatsdir = projects[project]["flats"] 
 				flatpath = basepath+flatsdir+exifflat
 				if not exists(flatpath): # if metadata doesn't work look for file in directory with right index number
 						logger.info("According to EXIF, flat is "+flatpath) 
@@ -52,8 +47,9 @@ def flattenrotate(fullpath):
 				with rawpy.imread(flatpath) as raw:
 						flat = raw.raw_image.copy()
 				# flattenedfloat = capture*numpy.average(flat)/flat
-				# np.divide(a, b, out=np.zeros_like(a), where=b!=0)
 				flattenedfloat = numpy.divide(capture*numpy.average(flat),flat,out=numpy.zeros_like(capture*numpy.average(flat)),where=flat!=0)
+				# might make sense to split flatten and rotate into separate functions
+				# look for rotation in yaml, exif, or filename
 				if exiforientation == "Rotate 90 CW": # counter-intuitive, read as rotated 90 CW and rotate 270 to correct
 						flattenedfloat = numpy.rot90(flattenedfloat,k=3)
 				elif exiforientation == "Rotate 180":
@@ -92,7 +88,6 @@ def readnblur(q,fullpath,sigma):
 						makedirs(cachepath+'denoise/sigma'+str(sigma)+'/',mode=0o755,exist_ok=True)
 						io.imsave(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif',img,check_contrast=False)
 		q.put(img)
-#def stacker(basepath,project,imagesets,sigma,skipuvbp,cachepath):
 def stacker(sigma):
 	countinput = 0 
 	stack = []
@@ -240,13 +235,20 @@ if interactive == True:
 		basepath = selections["basepath"]
 	else:
 		basepath = jubpaloptions["basepaths"][0]
+	## look for project list in selected basepath
+	projectsfile = basepath+basepath.split('/')[-2]+'.yaml'
+	if exists(projectsfile):
+		with open(projectsfile,'r') as unparsedyaml:
+				projects = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
+	else:
+	 	exit('Unable to find '+projectsfile)
 	## select one project
-	if len(jubpaloptions["projects"].keys()) > 1:
-		questions = [ inquirer.List('project',"Select project",choices=jubpaloptions["projects"].keys()) ]
+	if len(projects.keys()) > 1:
+		questions = [ inquirer.List('project',"Select project",choices=projects.keys()) ]
 		selections = inquirer.prompt(questions)
 		project = selections["project"]
 	else:
-		project = jubpaloptions["projects"].keys()[0]
+		project = projects.keys()[0]
 	## select one or more sigma for blur and divide
 	if len(jubpaloptions["options"]["sigmas"]) > 1:
 		questions = [ inquirer.Checkbox('sigmas',"Sigma for RLE blur and divide?",choices=jubpaloptions["options"]["sigmas"]) ]
@@ -281,43 +283,43 @@ if interactive == True:
 	else:
 		n_components = jubpaloptions["options"]["n_components"][0]
 	## select one or more image sets
-	if len(jubpaloptions["projects"][project]["imagesets"]) > 1:
-		questions = [ inquirer.Checkbox('imagesets',"Select one or more image sets",choices=jubpaloptions["projects"][project]["imagesets"]) ]
+	if len(projects[project]["imagesets"]) > 1:
+		questions = [ inquirer.Checkbox('imagesets',"Select one or more image sets",choices=projects[project]["imagesets"]) ]
 		imagesets = []
 		while len(imagesets) < 1:
 			selections = inquirer.prompt(questions)
 			imagesets = selections["imagesets"]
 	else:
-		imagesets = jubpaloptions["projects"][project]["imagesets"]
+		imagesets = projects[project]["imagesets"]
 	## select one roi, eventually one or more
-	if len(jubpaloptions["projects"][project]["rois"].keys()) > 1:
+	if len(projects[project]["rois"].keys()) > 1:
 		questions = [
-			inquirer.List('roi',"Select region of interest",choices=jubpaloptions["projects"][project]["rois"].keys())
+			inquirer.List('roi',"Select region of interest",choices=projects[project]["rois"].keys())
 		]
 		selections = inquirer.prompt(questions)
 		roi = selections["roi"]
 	else:
-		roi = list(jubpaloptions["projects"][project]["rois"].keys())[0] 
-	roix = jubpaloptions["projects"][project]["rois"][roi]["x"]
-	roiy = jubpaloptions["projects"][project]["rois"][roi]["y"]
-	roiw = jubpaloptions["projects"][project]["rois"][roi]["w"]
-	roih = jubpaloptions["projects"][project]["rois"][roi]["h"]
-	roilabel = jubpaloptions["projects"][project]["rois"][roi]["label"]
+		roi = list(projects[project]["rois"].keys())[0] 
+	roix = projects[project]["rois"][roi]["x"]
+	roiy = projects[project]["rois"][roi]["y"]
+	roiw = projects[project]["rois"][roi]["w"]
+	roih = projects[project]["rois"][roi]["h"]
+	roilabel = projects[project]["rois"][roi]["label"]
 	## select noise sample for mnf 
 	if ('mnf' in methods):
-			if len(jubpaloptions["projects"][project]["noisesamples"].keys()) > 1:
+			if len(projects[project]["noisesamples"].keys()) > 1:
 				questions = [
-					inquirer.List('noisesample',"Select Noise Region",choices=jubpaloptions["projects"][project]["noisesamples"].keys())
+					inquirer.List('noisesample',"Select Noise Region",choices=projects[project]["noisesamples"].keys())
 				]
 				selections = inquirer.prompt(questions)
 				noisesample = selections["noisesample"]
 			else:
-				noisesample = list(jubpaloptions["projects"][project]["noisesamples"].keys())[0] 
-			noisesamplex = jubpaloptions["projects"][project]["noisesamples"][noisesample]["x"]
-			noisesampley = jubpaloptions["projects"][project]["noisesamples"][noisesample]["y"]
-			noisesamplew = jubpaloptions["projects"][project]["noisesamples"][noisesample]["w"]
-			noisesampleh = jubpaloptions["projects"][project]["noisesamples"][noisesample]["h"]
-			noisesamplelabel = jubpaloptions["projects"][project]["noisesamples"][noisesample]["label"]
+				noisesample = list(projects[project]["noisesamples"].keys())[0] 
+			noisesamplex = projects[project]["noisesamples"][noisesample]["x"]
+			noisesampley = projects[project]["noisesamples"][noisesample]["y"]
+			noisesamplew = projects[project]["noisesamples"][noisesample]["w"]
+			noisesampleh = projects[project]["noisesamples"][noisesample]["h"]
+			noisesamplelabel = projects[project]["noisesamples"][noisesample]["label"]
 			noisestring = 'x'+str(noisesamplex)+'y'+str(noisesampley)+'w'+str(noisesamplew)+'h'+str(noisesampleh)
 	## select one or more histogram adjustments
 	if len(jubpaloptions["output"]["histograms"]) > 1:
@@ -335,13 +337,7 @@ if interactive == True:
 		multilayer = selections["multilayer"]
 	else:
 		multilayer = jubpaloptions["output"]["multilayer"][0]
-	## select one output path
-	if len(jubpaloptions["basepaths"]) > 1:
-		questions = [ inquirer.List('basepathout',"Select basepath for output (project name is implicit)",choices=jubpaloptions["basepaths"]) ]
-		selections = inquirer.prompt(questions)
-		basepathout = selections["basepathout"] 
-	else:
-		basepathout = jubpaloptions["basepaths"][0]
+	basepathout = basepath	# put output in the same directory 
 	## select one or more fileformat
 	if len(jubpaloptions["output"]["fileformats"]) > 1:
 		questions = [ inquirer.Checkbox('fileformats',"Select file format(s) to output",choices=jubpaloptions["output"]["fileformats"]) ]
@@ -353,31 +349,35 @@ if interactive == True:
 		fileformats = jubpaloptions["output"]["fileformats"][0] 
 else: # make non-interactive choices
 	basepath = jubpaloptions["basepaths"][0] # first listed basepath 
-	project = nextNeededProject(jubpaloptions["projects"].keys())
+	projectsfile = basepath+basepath.split('/')[-2]+'.yaml'
+	if exists(projectsfile):
+		with open(projectsfile,'r') as unparsedyaml:
+				projects = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
+	else:
+	 	exit('Unable to find '+projectsfile)
+	project = nextNeededProject(projects.keys())
 	if project == None:
-		print("No projects defined in",datafile,"in the first named basepath lack a Transform directory")
-		logger.info("No projects defined in "+datafile+" in the first named basepath lack a Transform directory")
+		print("No projects defined in",projectsfile,"(the first named basepath) lack a Transform directory")
+		logger.info("No projects defined in "+projectsfile+" (the first named basepath) lack a Transform directory")
 		exit()
 	sigmas = jubpaloptions["options"]["sigmas"] # all listed sigmas
 	skipuvbp = jubpaloptions["options"]["skipuvbp"][0] # top option for Skip UVB and UVP
-	# methods = 'fica'
-	# methods = ['pca','mnf'] # do only pca and mnf  in non-interactive mode, go back and do fica manually
 	methods = jubpaloptions["options"]["methods"] # all listed methods
 	n_components = jubpaloptions["options"]["n_components"][0] # first named number of components (max)
-	imagesets = jubpaloptions["projects"][project]["imagesets"] # use all image sets listed in the options file
-	roi = list(jubpaloptions["projects"][project]["rois"].keys())[0] # use first named roi (multiple roi in a single pass not yet supported)
-	roix = jubpaloptions["projects"][project]["rois"][roi]["x"]
-	roiy = jubpaloptions["projects"][project]["rois"][roi]["y"]
-	roiw = jubpaloptions["projects"][project]["rois"][roi]["w"]
-	roih = jubpaloptions["projects"][project]["rois"][roi]["h"]
-	roilabel = jubpaloptions["projects"][project]["rois"][roi]["label"]
+	imagesets = projects[project]["imagesets"] # use all image sets listed in the options file
+	roi = list(projects[project]["rois"].keys())[0] # use first named roi (multiple roi in a single pass not yet supported)
+	roix = projects[project]["rois"][roi]["x"]
+	roiy = projects[project]["rois"][roi]["y"]
+	roiw = projects[project]["rois"][roi]["w"]
+	roih = projects[project]["rois"][roi]["h"]
+	roilabel = projects[project]["rois"][roi]["label"]
 	if ('mnf' in methods):
-		noisesample = list(jubpaloptions["projects"][project]["noisesamples"].keys())[0] # use first named region of noise
-		noisesamplex = jubpaloptions["projects"][project]["noisesamples"][noisesample]["x"]
-		noisesampley = jubpaloptions["projects"][project]["noisesamples"][noisesample]["y"]
-		noisesamplew = jubpaloptions["projects"][project]["noisesamples"][noisesample]["w"]
-		noisesampleh = jubpaloptions["projects"][project]["noisesamples"][noisesample]["h"]
-		noisesamplelabel = jubpaloptions["projects"][project]["noisesamples"][noisesample]["label"]
+		noisesample = list(projects[project]["noisesamples"].keys())[0] # use first named region of noise
+		noisesamplex = projects[project]["noisesamples"][noisesample]["x"]
+		noisesampley = projects[project]["noisesamples"][noisesample]["y"]
+		noisesamplew = projects[project]["noisesamples"][noisesample]["w"]
+		noisesampleh = projects[project]["noisesamples"][noisesample]["h"]
+		noisesamplelabel = projects[project]["noisesamples"][noisesample]["label"]
 		noisestring = 'x'+str(noisesamplex)+'y'+str(noisesampley)+'w'+str(noisesamplew)+'h'+str(noisesampleh)
 	histograms = ['equalize','adaptive'] # produce equalized and adaptive histograms, not rescale or none
 	multilayer = 'separate files'
@@ -405,18 +405,8 @@ if ('mnf' in methods):
 for histogram in histograms:
 	logger.info("Histogram adjustment is "+histogram)
 
-# jubpalfunctions.jubpaloptions = jubpaloptions
-# jubpalfunctions.project = project
-# jubpalfunctions.basepath = basepath
-# jubpalfunctions.imagesets = imagesets
-# jubpalfunctions.skipuvbp = skipuvbp
-# jubpalfunctions.cachepath = cachepath
-# jubpalfunctions.logger = logger
-
 start = time.time()
 for sigma in sigmas:
-	#stack, countinput = jubpalfunctions.stacker(basepath,project,imagesets,sigma,skipuvbp,cachepath)
-	# stack, countinput = jubpalfunctions.stacker(sigma)
 	stack, countinput = stacker(sigma)
 	# turn image cube into a long rectangle
 	nlayers,fullh,fullw = stack.shape
@@ -450,7 +440,6 @@ for sigma in sigmas:
 			logger.info("Reshaped to "+str(d3_processed.shape)+' '+str(d3_processed.dtype))
 			outpath_fica = join(outpath,method+'_'+roistring)
 			outfile_fica = outfile+'_'+method+'_'+roistring
-			# jubpalfunctions.histogram_adjust(outpath=outpath_fica,outfile=outfile_fica,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 			histogram_adjust(outpath=outpath_fica,outfile=outfile_fica,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 	if ('mnf' in methods):
 			method = 'mnf'
@@ -467,14 +456,13 @@ for sigma in sigmas:
 			# d3_processed = mnfr.denoise(stack,snr=10) 
 			if n_components > 12: # limit mnf to 12 in effort to address memory problem
 				logger.info("Limiting MNF to 12 components")
-				n_components == 20
+				n_components == 12
 			d3_processed = mnfr.reduce(stack,num=n_components) # no need to create an extra object mnfr d3_processed = d3_processed.reduce(stack,num=n_components)
 			d3_processed = d3_processed.transpose()
 			d3_processed = img_as_float32(d3_processed)
 			logger.info("Reshaped to "+str(d3_processed.shape)+' '+str(d3_processed.dtype))
 			outpath_mnf = join(outpath,method+'_'+roistring+'n'+noisestring)
 			outfile_mnf = outfile+'_'+method+'_'+roistring+'n'+noisestring
-			# jubpalfunctions.histogram_adjust(outpath=outpath_mnf,outfile=outfile_mnf,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 			histogram_adjust(outpath=outpath_mnf,outfile=outfile_mnf,histograms=histograms,d3_processed=d3_processed,fileformats=fileformats,multilayer=multilayer,n_components=n_components)
 	if ('pca' in methods):
 			method = 'pca'
