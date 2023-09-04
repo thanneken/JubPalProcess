@@ -10,8 +10,8 @@ from datetime import datetime
 
 # Options (don't give boolean options variables and functions the same name)
 displayStout = True
-createPreviewJpg = False
-createMegavisionTxt = False
+createPreviewJpg = True
+createMegavisionTxt = True
 createCsv = True
 # Hard Code Paths 
 # inBasePath = '/storage/JubPalProj/Ambrosiana2023/Calibration/'
@@ -77,13 +77,16 @@ else:
 	exit('Unable to find '+projectsfile)
 
 # Identify sequences to process
-sequences = []
-for directoryEntry in listdir(inBasePath): 
-	try:
-	 	projects[directoryEntry]['white']
-	except:
-		continue
-	sequences.append(directoryEntry)
+if len(sys.argv) > 1:
+	sequences = sys.argv[1:]
+else:
+	sequences = []
+	for directoryEntry in listdir(inBasePath): 
+		try:
+			projects[directoryEntry]['white']
+		except:
+			continue
+		sequences.append(directoryEntry)
 
 # iterate over each sequence
 dictionaries = []
