@@ -1,5 +1,5 @@
 #!/home/thanneken/python/miniconda3/bin/python
-from skimage import io, img_as_uint, img_as_ubyte, exposure
+from skimage import io, img_as_uint, img_as_ubyte, exposure, color
 from os import listdir, makedirs, path
 import sys
 import rawpy
@@ -10,7 +10,7 @@ from datetime import datetime
 
 # Options (don't give boolean options variables and functions the same name)
 displayStout = True
-createPreviewJpg = True
+createPreviewJpg = False
 createMegavisionTxt = False
 createCsv = False
 createColor = True
@@ -20,15 +20,17 @@ inBasePath = '/storage/JubPalProj/Ambrosiana2023/Calibration/'
 outBasePath = '/home/thanneken/Projects/Color/'
 cachePath = '/storage/JubPalProj/cache/'
 illuminant = 'D65'
+illuminantBase = 'D65'
 observer = 'CIE 1931 2 Degree Standard Observer'
 wavelengths = [400,420,450,470,505,530,560,590,615,630,655,700] 
+wavelengths = [360,420,450,470,505,530,560,590,615,630,655,700] # amounts to instructing to ignore 400
 
 if createColor:
-	from colour import MSDS_CMFS,wavelength_to_XYZ,SDS_ILLUMINANTS, XYZ_to_sRGB
-	from skimage.color import xyz2rgb
+	from colour import MSDS_CMFS,wavelength_to_XYZ,SDS_ILLUMINANTS, XYZ_to_sRGB, XYZ_to_Lab
+	from skimage.color import xyz2rgb, xyz2lab
 	cmfs = MSDS_CMFS[observer] # MSDS = multispectral distributions; CMFS = colour matching functions
 	xyzWavelengths = wavelength_to_XYZ(wavelengths, cmfs)
-	illuminantWavelenghs = SDS_ILLUMINANTS[illuminant][wavelengths] 
+	illuminantWavelenghs = SDS_ILLUMINANTS[illuminantBase][wavelengths] 
 
 # Define Functions
 def opentifffile(tiffile):
@@ -83,31 +85,75 @@ def timeFromExif():
 	date = datetime.strptime(exifTime,'%Y:%m:%d %H:%M:%S')
 	return date.strftime('%x %X')
 def normalize(img):
-	img = numpy.transpose(img,axes=[1,2,0])
+	print("Normalized cube has shape",img.shape,img.dtype)
 	for i in range(img.shape[2]):
 		img[:,:,i] = img[:,:,i] * numpy.max(whiteLevels) / whiteLevels[i]
-	nearMax = numpy.mean(img[whitey:whitey+whiteh,whitex:whitex+whitew,:])
-	img = img / nearMax
-	img = numpy.clip(img,0,1)
+	nearMax = numpy.percentile(img[whitey:whitey+whiteh,whitex:whitex+whitew,:],70)
+	if False:
+		img = exposure.rescale_intensity(img,in_range=(0,nearMax),out_range=(0,1))
+	if True:
+		img = img * 0.95 / nearMax # white patch is supposed to be 95% luminance
+		img = numpy.clip(img,0,1)
 	return img
-def calculateSrgb(normCube):
+def calculateXyz(normCube):
 	height,width,bands = normCube.shape
 	normCube = normCube.reshape(height*width,bands) 
 	print("Calculating color calibration matrix based on wavelength")
 	illuminantMatrix = numpy.matmul(numpy.transpose(xyzWavelengths),(numpy.diagflat(illuminantWavelenghs)))
-	imageMatrix = numpy.matmul(illuminantMatrix,(numpy.transpose(normCube)))
-	XYZ = 1/100*imageMatrix
-	XYZ = numpy.transpose(XYZ)
-	XYZ = XYZ.reshape(height,width,3) 
+	xyz = numpy.matmul(illuminantMatrix,numpy.transpose(normCube))
+	xyz = numpy.transpose(xyz)
+	xyz = xyz.reshape(height,width,3) 
+	if False:
+		xyz = exposure.rescale_intensity(xyz,out_range=(0,1))
+		xyz = xyz*0.95/numpy.max(xyz[:,:,1])
+		xyz = xyz*0.90/numpy.max(xyz[:,:,1])
+		xyz = numpy.clip(xyz,0,1)
+		xyz = 1/100*xyz # Perhaps Morteza was trying to scale with constants, but this constant doesn't do it
+	if True:
+		xyz = xyz/numpy.max(xyz) # impactful change 9/27/2023
+	print("xyz shape is",xyz.shape,xyz.dtype)
+	print(
+		"xyz Range is",
+		numpy.min(xyz[:,:,0]),numpy.max(xyz[:,:,0]),
+		numpy.min(xyz[:,:,1]),numpy.max(xyz[:,:,1]),
+		numpy.min(xyz[:,:,2]),numpy.max(xyz[:,:,2])
+	)
+	return xyz
+def calculateLab32(xyz):
+	print("Converting XYZ to LAB")
+	lab = color.xyz2lab(xyz,illuminant=illuminant,observer='2') # lab = XYZ_to_Lab(xyz,illuminant=illuminant) 
+	if False:
+		lab = lab * 1.05
+		lab[:,:,1] = exposure.rescale_intensity(lab[:,:,1],out_range=(-76,56))
+		lab[:,:,2] = exposure.rescale_intensity(lab[:,:,2],out_range=(-96,127))
+		lab[:,:,0] = exposure.rescale_intensity(lab[:,:,0],out_range=(0,100))
+	lab = lab.astype('float32')
+	print("LAB has shape and data type:",lab.shape,lab.dtype)
+	print(
+		"LAB Range is",
+		numpy.min(lab[:,:,0]),numpy.max(lab[:,:,0]),
+		numpy.min(lab[:,:,1]),numpy.max(lab[:,:,1]),
+		numpy.min(lab[:,:,2]),numpy.max(lab[:,:,2])
+	)
+	lab32Path = outBasePath+sequence+'/Color/'+sequence+'-PyWavelengthColor-LAB32.tif'
+	io.imsave(lab32Path,lab,check_contrast=False)
+	return lab
+def calculateSrgb(xyz):
 	print("Converting XYZ to sRGB")
-	SRGB = XYZ_to_sRGB(XYZ)
-	SRGB = exposure.rescale_intensity(SRGB)
+	SRGB = color.xyz2rgb(xyz) # SRGB = XYZ_to_sRGB(xyz,illuminant=illuminant)
+	print(
+		"SRGB Range is",
+		numpy.min(SRGB[:,:,0]),numpy.max(SRGB[:,:,0]),
+		numpy.min(SRGB[:,:,1]),numpy.max(SRGB[:,:,1]),
+		numpy.min(SRGB[:,:,2]),numpy.max(SRGB[:,:,2])
+	)
+	# SRGB = exposure.adjust_gamma(SRGB,1/2.2)
 	return SRGB
 def writeSrgb(img):
 	print("Saving wavelength calibrated color image")
 	makedirs(outBasePath+sequence+'/Color/',mode=0o755,exist_ok=True)
 	jpegFilepath = outBasePath+sequence+'/Color/'+sequence+'PyλColor.jpg'
-	img = img_as_ubyte(img)
+	img = exposure.rescale_intensity(img,out_range=(0,255)).astype(numpy.uint8) # img = img/numpy.max(img)
 	io.imsave(jpegFilepath,img,check_contrast=False)
 def detint(img):
 	print("Performing detint routine")
@@ -123,6 +169,10 @@ def detint(img):
 	img = numpy.clip(img,0,1)
 	img = (img - numpy.min(img)) / (numpy.max(img) - numpy.min(img))
 	makedirs(outBasePath+sequence+'/Color/',mode=0o755,exist_ok=True)
+	detintPath = outBasePath+sequence+'/Color/'+sequence+'-PyWavelengthColor-detint-LAB32.tif'
+	imgLab = color.rgb2lab(img,illuminant=illuminant, observer='2')
+	imgLab = imgLab.astype('float32')
+	io.imsave(detintPath,imgLab,check_contrast=False)
 	jpegFilepath = outBasePath+sequence+'/Color/'+sequence+'PyλColor-detint.jpg'
 	img = img_as_ubyte(img)
 	io.imsave(jpegFilepath,img,check_contrast=False)
@@ -228,10 +278,23 @@ for sequence in sequences:
 			whiteLevels.append(whiteLevel)
 	dictionaries.append(dictionary)
 	if createColor:
+		visibleCube = numpy.transpose(visibleCube,axes=[1,2,0])
 		normCube = normalize(visibleCube)
-		SRGB = calculateSrgb(normCube)
-		writeSrgb(SRGB)
-		detint(SRGB)
+		if False:
+			img = normCube
+			print("NormCube shape:",img.shape,img.dtype)
+			img = numpy.transpose(img,axes=[2,0,1])
+			img = exposure.rescale_intensity(img,out_range=(0,255)).astype(numpy.uint8)
+			print("NormCube shape:",img.shape,img.dtype)
+			normalizedCubePath = '/home/thanneken/Projects/normalizedCube.tif'
+			io.imsave(normalizedCubePath,img)
+		xyz = calculateXyz(normCube)
+		lab32 = calculateLab32(xyz)
+		if True:
+			SRGB = calculateSrgb(xyz)
+			writeSrgb(SRGB)
+		if False:
+			detint(SRGB)
 	if createMegavisionTxt and (whitex or whitey):
 		writeMegavisionTxt()
 if createCsv:

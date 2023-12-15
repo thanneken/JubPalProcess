@@ -13,6 +13,7 @@ options:
     - False
     - True
   methods: 
+    - color
     - pca
     - mnf
     - fica
@@ -44,6 +45,8 @@ settings:
   fica_tol: 0.0001 # default is 0.0001, 0.00001 took days, .001 fails with error, 0.01 still took a while and sometimes fails at 10k iterations
   cachepath: /storage/JubPalProj/cache/
   logfile: /home/thanneken/logs/jubpalprocess.log
+  color:
+    illuminant: D65
 basepaths: 
   - /storage/JubPalProj/Ambrosiana2023/Ambrosiana_F130sup/
   - /storage/JubPalProj/Videntes/BritishLibrary_AddMS10049/

@@ -1,6 +1,6 @@
 #!/home/thanneken/python/miniconda3/bin/python
 import multiprocessing
-from skimage import io, img_as_float32, img_as_uint, img_as_ubyte, filters, exposure
+from skimage import io, img_as_float32, img_as_uint, img_as_ubyte, filters, exposure, color
 from os import listdir, makedirs
 from os.path import exists, join
 import time 
@@ -13,8 +13,191 @@ import logging
 import sys
 
 # DEFINE OUR FUNCTIONS
+def openrawfile(rawfile):
+	with rawpy.imread(rawfile) as raw:
+		return raw.raw_image.copy() 
+def flatten(unflat,flat):
+	return numpy.divide(unflat*numpy.average(flat),flat,out=numpy.zeros_like(unflat*numpy.average(flat)),where=flat!=0)
+def rotate(img,rotation): 
+	if rotation == 90:
+		img = numpy.rot90(img,k=1)
+	elif rotation == 180:
+		img = numpy.rot90(img,k=2)
+	elif rotation == 270:
+		img = numpy.rot90(img,k=3)
+	else:
+		logger.info("No rotation identified")
+	return img
+def normalize(img,whiteLevels,nearMax):
+	for i in range(img.shape[2]):
+		img[:,:,i] = img[:,:,i] * numpy.max(whiteLevels) / whiteLevels[i]
+	logger.info("Changing expected white luminance from .95 to .88 did not change ΔE. Manufacturer spec for white patch is 95%, Roy likes 88%.")
+	img = img * 0.88 / nearMax 
+	img = numpy.clip(img,0,1)
+	return img
+def processColor(msi2xyzFile):
+	makedirs(basepath+project+'/Color',mode=0o755,exist_ok=False)
+	imgCube = []
+	whiteLevels = []
+	for visibleBand in metadata['visibleBands']:
+		if 'sequenceShort' in metadata:
+			sequenceName = metadata['sequenceShort']
+		else:
+			sequenceName = project
+		cacheFilePath = cachepath+'flattened/'+sequenceName+'+'+visibleBand+'.tif'
+		if exists(cacheFilePath): 
+			img = io.imread(cacheFilePath)
+		else: 
+			img = openrawfile(basepath+project+'/Raw/'+sequenceName+'+'+visibleBand+'.dng')
+			for flatFile in listdir(basepath+metadata['flats']): 
+				if flatFile[-7:-4] == visibleBand[-3:]:
+					flatPath = basepath+metadata['flats']+flatFile
+			flat = openrawfile(flatPath)	
+			img = flatten(img,flat)
+			if not 'rotation' in metadata:
+			 	metadata['rotation'] = 0
+			img = rotate(img,metadata['rotation'])
+			io.imsave(cacheFilePath,img,check_contrast=False)
+		whiteSample = img[
+			metadata['white']['y']:metadata['white']['y']+metadata['white']['h'],
+			metadata['white']['x']:metadata['white']['x']+metadata['white']['w']
+		] # note y before x
+		whiteLevel = round(numpy.percentile(whiteSample,84),3) # median plus 1 standard deviation is equal to 84.1 percentile
+		imgCube.append(img)
+		whiteLevels.append(whiteLevel)
+	imgCube = numpy.transpose(imgCube,axes=[1,2,0])
+	nearMax = numpy.percentile(
+		imgCube[
+			metadata['white']['y']:metadata['white']['y']+metadata['white']['h'],
+			metadata['white']['x']:metadata['white']['x']+metadata['white']['w'],
+			:
+		],
+	84)
+	imgCube = normalize(imgCube,whiteLevels,nearMax)
+	height,width,layers=imgCube.shape
+	imgCube = imgCube.reshape(height*width,layers)
+	checkerRatio = numpy.loadtxt(msi2xyzFile)
+	calibratedColor = numpy.matmul( checkerRatio , numpy.transpose(imgCube))
+	calibratedColor = numpy.transpose(calibratedColor)
+	calibratedColor = calibratedColor.reshape(height,width,3)
+	calibratedColor = numpy.clip(calibratedColor,0,1)
+	srgb = color.xyz2rgb(calibratedColor)
+	srgb = exposure.rescale_intensity(srgb) 
+	srgb = img_as_ubyte(srgb)
+	jpgFilePath = basepath+project+'/Color/'+project+'.jpg'
+	logger.info("Saving jpeg file as "+jpgFilePath)
+	io.imsave(jpgFilePath,srgb,check_contrast=False) # TODO save in  more formats
+def checkColorReady():
+	if not 'color' in methods:
+		logger.info("Color processing not selected")
+		return False
+	if 'x' in metadata['white']:
+		logger.info("White patch is defined for this page")
+	else:
+		logger.info("White patch is not defined for this page")
+		return False
+	if exists(basepath+project+'/Color'):
+		logger.info("Color directory already exists, not repeating labor")
+		return False
+	else:
+	 	logger.info("Color directory does not already exist, continuing")
+	if 'msi2xyzFile' in metadata:
+		if exists(basepath+metadata['msi2xyzFile']):
+			logger.info("Found cached msi2xyz.txt as specified in metadata")
+			return basepath+metadata['msi2xyzFile']
+		else:
+		 	logger.info("msi2xyzFile specified in metadata but file does not yet exist... need to check if have resources to generate it")
+	else:
+		logger.info("msi2xyzFile not specificed in metadata... necessary to specify path where file should go even if it does not yet exist")
+		return False
+	if exists(basepath+'msi2xyz.txt'):
+		logger.info("Found cached msi2xyz.txt in basepath")
+		return basepath+'msi2xyz.txt'
+	if exists(basepath+'Calibration/msi2xyz.txt'):
+		logger.info("Found cached msi2xyz.txt in Calibration directory")
+		return basepath+'Calibration/msi2xyz.txt'
+	if exists(basepath+'Calibration/Color/msi2xyz.txt'):
+		logger.info("Found cached msi2xyz.txt in Calibration/Color directory")
+		return basepath+'Calibration/Color/msi2xyz.txt'
+	if exists(basepath+metadata['checkerMetadata']):
+		metadata['msi2xyzFile']
+		logger.info("Found the ingredients to generate an msi2xyz file")
+		createMsi2Xyz()
+		return basepath+metadata['msi2xyzFile']
+	else:
+		logger.info("Don't have the ingredients to generate an msi2xyz file")
+		return False
+def XyzDict2array(dict):
+	array = []
+	for i in range(1,25):
+		chip = [ dict[i]['X'] , dict[i]['Y'], dict[i]['Z'] ]
+		array.append(chip)
+	array = numpy.array(array,dtype=numpy.float64)
+	return array
+def measureCheckerValues(img,checkerMap):
+	checkerValues = []
+	for patch in range(1,25):
+		patchCube = img[
+			checkerMap[patch]['y']:checkerMap[patch]['y']+checkerMap[patch]['h'],
+			checkerMap[patch]['x']:checkerMap[patch]['x']+checkerMap[patch]['w'],
+			:
+		]
+		patchMedian = numpy.median(patchCube,axis=[0,1])
+		checkerValues.append(patchMedian)
+	return checkerValues
+def createMsi2Xyz():
+	with open(basepath+metadata['checkerMetadata'],'r') as unparsedyaml:
+		checkerYaml = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
+	if 'default' in checkerYaml:
+		checkerMetadata = checkerYaml['default']
+		checkerMetadata.update = checkerYaml['Calibration-Color']
+	else:
+		checkerMetadata = checkerYaml['Calibration-Color']
+	if 'rotation' not in checkerMetadata:
+ 		checkerMetadata['rotation'] = 0
+	capturedChecker = []
+	whiteLevels = []
+	for visibleBand in checkerMetadata['visibleBands']:
+		if 'sequenceShort' in checkerMetadata:
+			sequenceName = checkerMetadata['sequenceShort']
+		else:
+			sequenceName = 'Calibration-Color'
+		cacheFilePath = cachepath+'flattened/'+sequenceName+'+'+visibleBand+'.tif'
+		if exists(cacheFilePath): 
+			img = io.imread(cacheFilePath)
+		else: 
+			img = openrawfile(basepath+'../Calibration/Calibration-Color/'+checkerMetadata['imagesets'][0]+'/'+checkerMetadata['shortFilenameBase']+'+'+visibleBand+'.dng')
+			for flatFile in listdir(basepath+'../Calibration/'+checkerMetadata['flats']):
+				if flatFile[-7:-4] == visibleBand[-3:]:
+					flatPath = basepath+'../Calibration/'+checkerMetadata['flats']+flatFile
+			flat = openrawfile(flatPath)	
+			img = flatten(img,flat)
+			img = rotate(img,checkerMetadata['rotation'])
+			io.imsave(cacheFilePath,img,check_contrast=False)
+		whiteSample = img[
+			checkerMetadata['white']['y']:checkerMetadata['white']['y']+checkerMetadata['white']['h'],
+			checkerMetadata['white']['x']:checkerMetadata['white']['x']+checkerMetadata['white']['w'] ]
+		whiteLevel = numpy.percentile(whiteSample,84) # median plus 1 standard deviation is equal to 84.1 percentile
+		capturedChecker.append(img)
+		whiteLevels.append(whiteLevel)
+	capturedChecker = numpy.transpose(capturedChecker,axes=[1,2,0])
+	nearMax = numpy.percentile(
+		capturedChecker[
+			checkerMetadata['white']['y']:checkerMetadata['white']['y']+checkerMetadata['white']['h'],
+			checkerMetadata['white']['x']:checkerMetadata['white']['x']+checkerMetadata['white']['w'],
+			:
+		],
+	84)
+	capturedChecker = normalize(capturedChecker,whiteLevels,nearMax)
+	checkerValues = measureCheckerValues(capturedChecker,checkerMetadata['checkerMap'])
+	checkerValues = numpy.array(checkerValues)
+	checkerReference = XyzDict2array(checkerMetadata['checkerReference'])
+	logger.info("Calculating ratio of known patch values to measured patch values")
+	checkerRatio = numpy.matmul( numpy.transpose(checkerReference) , numpy.transpose(numpy.linalg.pinv(checkerValues)) )
+	numpy.savetxt(basepath+metadata['msi2xyzFile'],checkerRatio,header='Matrix of XYZ x MSI Wavelengths, load with numpy.loadtxt()') 
 def nextNeededProject(projects):
 	matches = (f for f in projects if exists(basepath+f) and not exists(basepath+f+'/Transform'))
+	# matches = (f for f in projects if exists(basepath+f) and not exists(basepath+f+'/Color'))
 	return next(matches,None)
 def blurdivide(img,sigma):
 	if not img.dtype == "float32":
@@ -36,7 +219,7 @@ def flattenrotate(fullpath):
 				if exifflat.endswith('.dn'):
 					exifflat = exifflat+'g' # the last letter got cut off in 2017, likely to be different in 2023
 				exiforientation = exif[0]["EXIF:Orientation"]
-				flatsdir = projects[project]["flats"] 
+				flatsdir = metadata['flats']
 				flatpath = basepath+flatsdir+exifflat
 				if not exists(flatpath): # if metadata doesn't work look for file in directory with right index number
 						logger.info("According to EXIF, flat is "+flatpath) 
@@ -205,6 +388,7 @@ cachepath = jubpaloptions["settings"]["cachepath"]
 fica_max_iter = jubpaloptions["settings"]["fica_max_iter"]
 fica_tol = jubpaloptions["settings"]["fica_tol"]
 logfile = jubpaloptions["settings"]["logfile"]
+illuminant = jubpaloptions['settings']['color']['illuminant']
 ## configure logging
 logger = logging.getLogger(__name__) # necessary to instantiate?
 if exists(logfile): 
@@ -227,7 +411,7 @@ elif len(jubpaloptions["options"]["interactive"]) > 1:
 else:
 	interactive = jubpaloptions["options"]["interactive"][0]
 
-if interactive == True:
+if interactive:
 	## select one basepath
 	if len(jubpaloptions["basepaths"]) > 1:
 		questions = [inquirer.List('basepath',"Select basepath for source data",choices=jubpaloptions["basepaths"])]
@@ -242,29 +426,22 @@ if interactive == True:
 				projects = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
 	else:
 	 	exit('Unable to find '+projectsfile)
+
 	## select one project
-	if len(projects.keys()) > 1:
-		questions = [ inquirer.List('project',"Select project",choices=projects.keys()) ]
+	projectChoices = list(projects.keys())
+	projectChoices.remove('default') 
+	if len(projectChoices) > 1:
+		questions = [ inquirer.List('project',"Select project",choices=projectChoices) ]
 		selections = inquirer.prompt(questions)
 		project = selections["project"]
 	else:
-		project = projects.keys()[0]
-	## select one or more sigma for blur and divide
-	if len(jubpaloptions["options"]["sigmas"]) > 1:
-		questions = [ inquirer.Checkbox('sigmas',"Sigma for RLE blur and divide?",choices=jubpaloptions["options"]["sigmas"]) ]
-		sigmas = []
-		while len(sigmas) < 1:
-			selections = inquirer.prompt(questions)
-			sigmas = selections["sigmas"] 
-	else:
-		sigmas = jubpaloptions["options"]["sigmas"][0]
-	## select one of skipuvbp boolean
-	if len(jubpaloptions["options"]["skipuvbp"]) > 1:
-		questions = [ inquirer.List('skipuvbp',"Skip files with UVB_ or UVP_ in filename?",choices=jubpaloptions["options"]["skipuvbp"]) ]
-		selections = inquirer.prompt(questions)
-		skipuvbp = selections["skipuvbp"]
-	else:
-		skipuvbp = jubpaloptions["options"]["skipuvbp"][0]
+		project = projectChoices[0]
+	metadata = {}
+	metadata.update(projects['default'])
+	metadata.update(projects[project])
+	metadata['white'].update(projects['default']['white'])
+	metadata['white'].update(projects[project]['white'])
+
 	## select one or more methods
 	if len(jubpaloptions["options"]["methods"]) > 1:
 		questions = [ inquirer.Checkbox('methods',"Select Process",choices=jubpaloptions["options"]["methods"]) ]
@@ -275,78 +452,105 @@ if interactive == True:
 		methods = selections["methods"]
 	else:
 		methods = jubpaloptions["options"]["methods"][0]
-	## select one number of components
-	if len(jubpaloptions["options"]["n_components"]) > 1:
-		questions = [ inquirer.List('n_components',"How many components to generate?",choices=jubpaloptions["options"]["n_components"]) ]
-		selections = inquirer.prompt(questions)
-		n_components = selections["n_components"]
+
+	if any(x in methods for x in ['kpca','pca','mnf','fica']):
+		linearTransformations = True
 	else:
-		n_components = jubpaloptions["options"]["n_components"][0]
-	## select one or more image sets
-	if len(projects[project]["imagesets"]) > 1:
-		questions = [ inquirer.Checkbox('imagesets',"Select one or more image sets",choices=projects[project]["imagesets"]) ]
-		imagesets = []
-		while len(imagesets) < 1:
-			selections = inquirer.prompt(questions)
-			imagesets = selections["imagesets"]
-	else:
-		imagesets = projects[project]["imagesets"]
-	## select one roi, eventually one or more
-	if len(projects[project]["rois"].keys()) > 1:
-		questions = [
-			inquirer.List('roi',"Select region of interest",choices=projects[project]["rois"].keys())
-		]
-		selections = inquirer.prompt(questions)
-		roi = selections["roi"]
-	else:
-		roi = list(projects[project]["rois"].keys())[0] 
-	roix = projects[project]["rois"][roi]["x"]
-	roiy = projects[project]["rois"][roi]["y"]
-	roiw = projects[project]["rois"][roi]["w"]
-	roih = projects[project]["rois"][roi]["h"]
-	roilabel = projects[project]["rois"][roi]["label"]
-	## select noise sample for mnf 
-	if ('mnf' in methods):
-			if len(projects[project]["noisesamples"].keys()) > 1:
-				questions = [
-					inquirer.List('noisesample',"Select Noise Region",choices=projects[project]["noisesamples"].keys())
-				]
+		linearTransformations = False
+		sigmas = []
+
+	if linearTransformations:
+		## select one or more sigma for blur and divide
+		if len(jubpaloptions["options"]["sigmas"]) > 1:
+			questions = [ inquirer.Checkbox('sigmas',"Sigma for RLE blur and divide?",choices=jubpaloptions["options"]["sigmas"]) ]
+			sigmas = []
+			while len(sigmas) < 1:
 				selections = inquirer.prompt(questions)
-				noisesample = selections["noisesample"]
-			else:
-				noisesample = list(projects[project]["noisesamples"].keys())[0] 
-			noisesamplex = projects[project]["noisesamples"][noisesample]["x"]
-			noisesampley = projects[project]["noisesamples"][noisesample]["y"]
-			noisesamplew = projects[project]["noisesamples"][noisesample]["w"]
-			noisesampleh = projects[project]["noisesamples"][noisesample]["h"]
-			noisesamplelabel = projects[project]["noisesamples"][noisesample]["label"]
-			noisestring = 'x'+str(noisesamplex)+'y'+str(noisesampley)+'w'+str(noisesamplew)+'h'+str(noisesampleh)
-	## select one or more histogram adjustments
-	if len(jubpaloptions["output"]["histograms"]) > 1:
-		questions = [ inquirer.Checkbox('histograms',"Select histogram adjustment(s) for final product",choices=jubpaloptions["output"]["histograms"]) ]
-		histograms = []
-		while len(histograms) < 1:
+				sigmas = selections["sigmas"] 
+		else:
+			sigmas = jubpaloptions["options"]["sigmas"][0]
+
+		## select one of skipuvbp boolean
+		if len(jubpaloptions["options"]["skipuvbp"]) > 1:
+			questions = [ inquirer.List('skipuvbp',"Skip files with UVB_ or UVP_ in filename?",choices=jubpaloptions["options"]["skipuvbp"]) ]
 			selections = inquirer.prompt(questions)
-			histograms = selections["histograms"]
-	else:
-		histograms = jubpaloptions["output"]["histogram"][0]
-	## select multilayer as stack or separate files
-	if len(jubpaloptions["output"]["multilayer"]) > 1:
-		questions = [ inquirer.List('multilayer',"Select what to do with multiple layers",choices=jubpaloptions["output"]["multilayer"]) ]
-		selections = inquirer.prompt(questions)
-		multilayer = selections["multilayer"]
-	else:
-		multilayer = jubpaloptions["output"]["multilayer"][0]
-	basepathout = basepath	# put output in the same directory 
-	## select one or more fileformat
-	if len(jubpaloptions["output"]["fileformats"]) > 1:
-		questions = [ inquirer.Checkbox('fileformats',"Select file format(s) to output",choices=jubpaloptions["output"]["fileformats"]) ]
-		fileformats = []
-		while len(fileformats) < 1:
+			skipuvbp = selections["skipuvbp"]
+		else:
+			skipuvbp = jubpaloptions["options"]["skipuvbp"][0]
+
+		## select one number of components
+		if len(jubpaloptions["options"]["n_components"]) > 1:
+			questions = [ inquirer.List('n_components',"How many components to generate?",choices=jubpaloptions["options"]["n_components"]) ]
 			selections = inquirer.prompt(questions)
-			fileformats = selections["fileformats"]
-	else:
-		fileformats = jubpaloptions["output"]["fileformats"][0] 
+			n_components = selections["n_components"]
+		else:
+			n_components = jubpaloptions["options"]["n_components"][0]
+		## select one or more image sets
+		imagesetOptions = metadata['imagesets']
+		if len(imagesetOptions) > 1:
+			questions = [ inquirer.Checkbox('imagesets',"Select one or more image sets",choices=imagesetOptions) ]
+			imagesets = []
+			while len(imagesets) < 1:
+				selections = inquirer.prompt(questions)
+				imagesets = selections["imagesets"]
+		else:
+			imagesets = imagesetOptions
+		## select one roi, eventually one or more
+		if len(metadata['rois'].keys()) > 1: 
+			questions = [
+				inquirer.List('roi',"Select region of interest",choices=metadata["rois"].keys())
+			]
+			selections = inquirer.prompt(questions)
+			roi = selections["roi"]
+		else:
+			roi = list(metadata["rois"].keys())[0] 
+		roix = metadata["rois"][roi]["x"]
+		roiy = metadata["rois"][roi]["y"]
+		roiw = metadata["rois"][roi]["w"]
+		roih = metadata["rois"][roi]["h"]
+		roilabel = metadata["rois"][roi]["label"]
+		## select noise sample for mnf 
+		if ('mnf' in methods):
+				if len(metadata["noisesamples"].keys()) > 1:
+					questions = [
+						inquirer.List('noisesample',"Select Noise Region",choices=metadata["noisesamples"].keys())
+					]
+					selections = inquirer.prompt(questions)
+					noisesample = selections["noisesample"]
+				else:
+					noisesample = list(metadata["noisesamples"].keys())[0] 
+				noisesamplex = metadata["noisesamples"][noisesample]["x"]
+				noisesampley = metadata["noisesamples"][noisesample]["y"]
+				noisesamplew = metadata["noisesamples"][noisesample]["w"]
+				noisesampleh = metadata["noisesamples"][noisesample]["h"]
+				noisesamplelabel = metadata["noisesamples"][noisesample]["label"]
+				noisestring = 'x'+str(noisesamplex)+'y'+str(noisesampley)+'w'+str(noisesamplew)+'h'+str(noisesampleh)
+		## select one or more histogram adjustments
+		if len(jubpaloptions["output"]["histograms"]) > 1:
+			questions = [ inquirer.Checkbox('histograms',"Select histogram adjustment(s) for final product",choices=jubpaloptions["output"]["histograms"]) ]
+			histograms = []
+			while len(histograms) < 1:
+				selections = inquirer.prompt(questions)
+				histograms = selections["histograms"]
+		else:
+			histograms = jubpaloptions["output"]["histogram"][0]
+		## select multilayer as stack or separate files
+		if len(jubpaloptions["output"]["multilayer"]) > 1:
+			questions = [ inquirer.List('multilayer',"Select what to do with multiple layers",choices=jubpaloptions["output"]["multilayer"]) ]
+			selections = inquirer.prompt(questions)
+			multilayer = selections["multilayer"]
+		else:
+			multilayer = jubpaloptions["output"]["multilayer"][0]
+		basepathout = basepath	# put output in the same directory 
+		## select one or more fileformat
+		if len(jubpaloptions["output"]["fileformats"]) > 1:
+			questions = [ inquirer.Checkbox('fileformats',"Select file format(s) to output",choices=jubpaloptions["output"]["fileformats"]) ]
+			fileformats = []
+			while len(fileformats) < 1:
+				selections = inquirer.prompt(questions)
+				fileformats = selections["fileformats"]
+		else:
+			fileformats = jubpaloptions["output"]["fileformats"][0] 
 else: # make non-interactive choices
 	basepath = jubpaloptions["basepaths"][0] # first listed basepath 
 	projectsfile = basepath+basepath.split('/')[-2]+'.yaml'
@@ -364,25 +568,37 @@ else: # make non-interactive choices
 	skipuvbp = jubpaloptions["options"]["skipuvbp"][0] # top option for Skip UVB and UVP
 	methods = jubpaloptions["options"]["methods"] # all listed methods
 	n_components = jubpaloptions["options"]["n_components"][0] # first named number of components (max)
-	imagesets = projects[project]["imagesets"] # use all image sets listed in the options file
-	roi = list(projects[project]["rois"].keys())[0] # use first named roi (multiple roi in a single pass not yet supported)
-	roix = projects[project]["rois"][roi]["x"]
-	roiy = projects[project]["rois"][roi]["y"]
-	roiw = projects[project]["rois"][roi]["w"]
-	roih = projects[project]["rois"][roi]["h"]
-	roilabel = projects[project]["rois"][roi]["label"]
-	if ('mnf' in methods):
-		noisesample = list(projects[project]["noisesamples"].keys())[0] # use first named region of noise
-		noisesamplex = projects[project]["noisesamples"][noisesample]["x"]
-		noisesampley = projects[project]["noisesamples"][noisesample]["y"]
-		noisesamplew = projects[project]["noisesamples"][noisesample]["w"]
-		noisesampleh = projects[project]["noisesamples"][noisesample]["h"]
-		noisesamplelabel = projects[project]["noisesamples"][noisesample]["label"]
-		noisestring = 'x'+str(noisesamplex)+'y'+str(noisesampley)+'w'+str(noisesamplew)+'h'+str(noisesampleh)
-	histograms = ['equalize','adaptive'] # produce equalized and adaptive histograms, not rescale or none
-	multilayer = 'separate files'
-	basepathout = basepath	# put it in the same directory in non-interactive mode
-	fileformats = ['jpg']
+	metadata = {}
+	metadata.update(projects['default'])
+	metadata.update(projects[project])
+	metadata['white'].update(projects['default']['white'])
+	metadata['white'].update(projects[project]['white'])
+	imagesets  = metadata["imagesets"]
+	if any(x in methods for x in ['kpca','pca','mnf','fica']):
+		linearTransformations = True
+	else:
+		linearTransformations = False
+		sigmas = []
+
+	if linearTransformations:
+		roi = list(metadata["rois"].keys())[0] # use first named roi (multiple roi in a single pass not yet supported)
+		roix = metadata["rois"][roi]["x"]
+		roiy = metadata["rois"][roi]["y"]
+		roiw = metadata["rois"][roi]["w"]
+		roih = metadata["rois"][roi]["h"]
+		roilabel = metadata["rois"][roi]["label"]
+		if ('mnf' in methods):
+			noisesample = list(metadata["noisesamples"].keys())[0] # use first named region of noise
+			noisesamplex = metadata["noisesamples"][noisesample]["x"]
+			noisesampley = metadata["noisesamples"][noisesample]["y"]
+			noisesamplew = metadata["noisesamples"][noisesample]["w"]
+			noisesampleh = metadata["noisesamples"][noisesample]["h"]
+			noisesamplelabel = metadata["noisesamples"][noisesample]["label"]
+			noisestring = 'x'+str(noisesamplex)+'y'+str(noisesampley)+'w'+str(noisesamplew)+'h'+str(noisesampleh)
+		histograms = ['equalize','adaptive'] # produce equalized and adaptive histograms, not rescale or none
+		multilayer = 'separate files'
+		basepathout = basepath	# put it in the same directory in non-interactive mode
+		fileformats = ['jpg']
 
 if exists(logfile): 
 	print("All information gathered, progress info available in",logfile)
@@ -392,20 +608,30 @@ else:
 # Summarize Choices
 logger.info("Basepath is "+basepath)
 logger.info("Project is "+project)
-for sigma in sigmas:
-	logger.info("Sigma is "+str(sigma))
 for method in methods:
 	logger.info("Process is "+method)
-logger.info("nLayers is "+str(n_components))
-for imageset in imagesets:
-	logger.info("Imageset is "+imageset)
-logger.info("ROI is "+roi+' '+str(roilabel)+' '+str(roix)+' '+str(roiy)+' '+str(roiw)+' '+str(roih))
-if ('mnf' in methods):
-	logger.info("Noise sample is "+noisesample+' '+noisesamplelabel+' '+noisestring)
-for histogram in histograms:
-	logger.info("Histogram adjustment is "+histogram)
+if linearTransformations:
+	for sigma in sigmas:
+		logger.info("Sigma is "+str(sigma))
+	logger.info("nLayers is "+str(n_components))
+	for imageset in imagesets:
+		logger.info("Imageset is "+imageset)
+	logger.info("ROI is "+roi+' '+str(roilabel)+' '+str(roix)+' '+str(roiy)+' '+str(roiw)+' '+str(roih))
+	if ('mnf' in methods):
+		logger.info("Noise sample is "+noisesample+' '+noisesamplelabel+' '+noisestring)
+	for histogram in histograms:
+		logger.info("Histogram adjustment is "+histogram)
 
 start = time.time()
+
+
+msi2xyzFile = checkColorReady()
+if msi2xyzFile:
+	logger.info("Confirmed ready to process color with msi2xyzFile "+msi2xyzFile)
+	processColor(msi2xyzFile)
+else:
+	logger.info("Not doing color processing")
+
 for sigma in sigmas:
 	stack, countinput = stacker(sigma)
 	# turn image cube into a long rectangle
