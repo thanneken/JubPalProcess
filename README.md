@@ -7,7 +7,7 @@ This is a public alpha for users already comfortable in Python and YAML.
 Users will need to edit the path to Python in `process.py` and install all dependencies. 
 Subsequently, basic changes will be made in `options.yaml` following the examples provided. 
 Additional metadata is specified on a per-project basis following the model [Ambrosiana\_F130sup.yaml](https://palimpsest.stmarytx.edu/Ambrosiana2023/Ambrosiana_F130sup/Ambrosiana_F130sup.yaml).
-Colorcheker calibrated color processing requires additional metadata following the model [Calibration.yaml](https://palimpsest.stmarytx.edu/Ambrosiana2023/Calibration/Calibration.yaml).
+Color checker calibrated color processing requires additional metadata following the model [Calibration.yaml](https://palimpsest.stmarytx.edu/Ambrosiana2023/Calibration/Calibration.yaml).
 (Yaml files do not allow tabs for indentation, only spaces.)
 Selections from among the options specified in yaml files are made in an interactive command-line interface upon running `process.py`.
 A non-interactive mode assuming coded defaults can be started by adding the argument “noninteractive” to the command line. 
@@ -22,7 +22,7 @@ It can run in non-interactive mode on large batches of data if required metadata
 
 The following processes are thoroughly tested:
 
-1. Colorchecker calibrated color processing produces very accurate color (0.7 ΔE). 
+1. Color checker calibrated color processing produces very accurate color (0.7 ΔE). 
 It requires that a color checker with known XYZ patch values has been imaged with the same capture configuration.
 1. Blur and Divide, following the method used by Roger Easton except that a Gaussian blur is used. 
 The sigma (radius) of the blur can be selected from multiple options. 
@@ -92,7 +92,7 @@ Some additional files are not generally recommended.
 
 1. `white.py` has the ability to create white balance files readable by MegaVision PhotoShoot. 
 It also can create spreadsheets of measurements across a session.
-1. `color.py` can produce decent calibrated color when a colorchecker is not available but the wavelengths are known.
+1. `color.py` can produce decent calibrated color when a color checker is not available but the wavelengths are known.
 1. `measurecolor.py` was developed to compare the ΔE values of different LAB images and reference tables.
 1. `checkercolor.py` is a standalone version of the “color” method built into process.py.
 
