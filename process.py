@@ -13,21 +13,15 @@ import logging
 import sys
 
 # DEFINE OUR FUNCTIONS
+def openImageFile(filePath):
+	if filePath.endswith('.dng'):
+		with rawpy.imread(filePath) as raw:
+			return raw.raw_image.copy() 
+	else:
+			return io.imread(filePath)
 def openrawfile(rawfile):
 	with rawpy.imread(rawfile) as raw:
 		return raw.raw_image.copy() 
-def flatten(unflat,flat):
-	return numpy.divide(unflat*numpy.average(flat),flat,out=numpy.zeros_like(unflat*numpy.average(flat)),where=flat!=0)
-def rotate(img,rotation): 
-	if rotation == 90:
-		img = numpy.rot90(img,k=1)
-	elif rotation == 180:
-		img = numpy.rot90(img,k=2)
-	elif rotation == 270:
-		img = numpy.rot90(img,k=3)
-	else:
-		logger.info("No rotation identified")
-	return img
 def normalize(img,whiteLevels,nearMax):
 	for i in range(img.shape[2]):
 		img[:,:,i] = img[:,:,i] * numpy.max(whiteLevels) / whiteLevels[i]
@@ -48,11 +42,22 @@ def processColor(msi2xyzFile):
 		if exists(cacheFilePath): 
 			img = io.imread(cacheFilePath)
 		else: 
-			img = openrawfile(basepath+project+'/Raw/'+sequenceName+'+'+visibleBand+'.dng')
-			for flatFile in listdir(basepath+metadata['flats']): 
-				if flatFile[-7:-4] == visibleBand[-3:]:
-					flatPath = basepath+metadata['flats']+flatFile
-			flat = openrawfile(flatPath)	
+			if 'Unflattened' in metadata['imagesets']:
+				unflatPath = basepath+project+'/Unflattened/'
+			elif 'Raw' in metadata['imagesets']:
+				unflatPath = basepath+project+'/Raw/'
+			elif 'Reflectance' in metadata['imagesets']:
+				unflatPath = basepath+project+'/Reflectance/'
+			else:
+				exit("Need more info to know what image data to use for color calibration")
+			for filename in listdir(unflatPath):
+				if visibleBand in filename:
+					unflatFile = unflatPath+filename
+			img = openImageFile(unflatFile)
+			for filename in listdir(basepath+metadata['flats']): 
+				if visibleBand in filename:
+					flatFile = basepath+metadata['flats']+filename
+			flat = openImageFile(flatFile)
 			img = flatten(img,flat)
 			if not 'rotation' in metadata:
 			 	metadata['rotation'] = 0
@@ -84,9 +89,17 @@ def processColor(msi2xyzFile):
 	srgb = color.xyz2rgb(calibratedColor)
 	srgb = exposure.rescale_intensity(srgb) 
 	srgb = img_as_ubyte(srgb)
+	srgbFilePath = basepath+project+'/Color/'+project+'_sRGB.tif'
+	logger.info("Saving sRGB tiff "+srgbFilePath)
+	io.imsave(srgbFilePath,srgb,check_contrast=False) 
 	jpgFilePath = basepath+project+'/Color/'+project+'.jpg'
 	logger.info("Saving jpeg file as "+jpgFilePath)
-	io.imsave(jpgFilePath,srgb,check_contrast=False) # TODO save in  more formats
+	io.imsave(jpgFilePath,srgb,check_contrast=False) 
+	lab = color.xyz2lab(calibratedColor)
+	lab = lab.astype('int8')
+	labFilePath = basepath+project+'/Color/'+project+'_LAB.tif'
+	logger.info("Saving LAB tiff "+labFilePath)
+	io.imsave(labFilePath,lab,check_contrast=False)
 def checkColorReady():
 	if not 'color' in methods:
 		logger.info("Color processing not selected")
@@ -147,66 +160,109 @@ def measureCheckerValues(img,checkerMap):
 	return checkerValues
 def createMsi2Xyz():
 	with open(basepath+metadata['checkerMetadata'],'r') as unparsedyaml:
-		checkerYaml = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
-	if 'default' in checkerYaml:
-		checkerMetadata = checkerYaml['default']
-		checkerMetadata.update = checkerYaml['Calibration-Color']
-	else:
-		checkerMetadata = checkerYaml['Calibration-Color']
-	if 'rotation' not in checkerMetadata:
- 		checkerMetadata['rotation'] = 0
+		calibration = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
+	if 'rotation' not in calibration['Calibration-Color']:
+ 		calibration['Calibration-Color']['rotation'] = 0
 	capturedChecker = []
 	whiteLevels = []
-	for visibleBand in checkerMetadata['visibleBands']:
-		if 'sequenceShort' in checkerMetadata:
-			sequenceName = checkerMetadata['sequenceShort']
+	for visibleBand in calibration['Calibration-Color']['visibleBands']:
+		if 'sequenceShort' in calibration['Calibration-Color']:
+			sequenceName = calibration['Calibration-Color']['sequenceShort']
 		else:
-			sequenceName = 'Calibration-Color'
-		cacheFilePath = cachepath+'flattened/'+sequenceName+'+'+visibleBand+'.tif'
+			sequenceName = calibration['Calibration-Color']['checkerCaptureDirectory']
+		cacheFilePath = cachepath+'flattened/'+sequenceName+'_'+visibleBand+'.tif'
 		if exists(cacheFilePath): 
 			img = io.imread(cacheFilePath)
 		else: 
-			img = openrawfile(basepath+'../Calibration/Calibration-Color/'+checkerMetadata['imagesets'][0]+'/'+checkerMetadata['shortFilenameBase']+'+'+visibleBand+'.dng')
-			for flatFile in listdir(basepath+'../Calibration/'+checkerMetadata['flats']):
-				if flatFile[-7:-4] == visibleBand[-3:]:
-					flatPath = basepath+'../Calibration/'+checkerMetadata['flats']+flatFile
-			flat = openrawfile(flatPath)	
+			for filename in listdir(basepath+sequenceName+'/'+calibration['Calibration-Color']['imagesets'][0]):
+				if visibleBand in filename:
+					unflatPath = basepath+sequenceName+'/'+calibration['Calibration-Color']['imagesets'][0]+'/'+filename
+			# img = openrawfile(basepath+'../Calibration/Calibration-Color/'+checkerMetadata['imagesets'][0]+'/'+checkerMetadata['shortFilenameBase']+'+'+visibleBand+'.dng')
+			img = openImageFile(unflatPath)
+			for flatFile in listdir(basepath+calibration['Calibration-Color']['flats']):
+				if visibleBand in flatFile:
+					flatPath = basepath+calibration['Calibration-Color']['flats']+flatFile
+			flat = openImageFile(flatPath)
 			img = flatten(img,flat)
-			img = rotate(img,checkerMetadata['rotation'])
+			img = rotate(img,calibration['Calibration-Color']['rotation'])
 			io.imsave(cacheFilePath,img,check_contrast=False)
 		whiteSample = img[
-			checkerMetadata['white']['y']:checkerMetadata['white']['y']+checkerMetadata['white']['h'],
-			checkerMetadata['white']['x']:checkerMetadata['white']['x']+checkerMetadata['white']['w'] ]
+			calibration['Calibration-Color']['white']['y']:calibration['Calibration-Color']['white']['y']+calibration['Calibration-Color']['white']['h'],
+			calibration['Calibration-Color']['white']['x']:calibration['Calibration-Color']['white']['x']+calibration['Calibration-Color']['white']['w'] ]
 		whiteLevel = numpy.percentile(whiteSample,84) # median plus 1 standard deviation is equal to 84.1 percentile
 		capturedChecker.append(img)
 		whiteLevels.append(whiteLevel)
 	capturedChecker = numpy.transpose(capturedChecker,axes=[1,2,0])
 	nearMax = numpy.percentile(
 		capturedChecker[
-			checkerMetadata['white']['y']:checkerMetadata['white']['y']+checkerMetadata['white']['h'],
-			checkerMetadata['white']['x']:checkerMetadata['white']['x']+checkerMetadata['white']['w'],
+			calibration['Calibration-Color']['white']['y']:calibration['Calibration-Color']['white']['y']+calibration['Calibration-Color']['white']['h'],
+			calibration['Calibration-Color']['white']['x']:calibration['Calibration-Color']['white']['x']+calibration['Calibration-Color']['white']['w'],
 			:
 		],
 	84)
 	capturedChecker = normalize(capturedChecker,whiteLevels,nearMax)
-	checkerValues = measureCheckerValues(capturedChecker,checkerMetadata['checkerMap'])
+	checkerValues = measureCheckerValues(capturedChecker,calibration['Calibration-Color']['checkerMap'])
 	checkerValues = numpy.array(checkerValues)
-	checkerReference = XyzDict2array(checkerMetadata['checkerReference'])
+	checkerReference = XyzDict2array(calibration['Calibration-Color']['checkerReference'])
 	logger.info("Calculating ratio of known patch values to measured patch values")
 	checkerRatio = numpy.matmul( numpy.transpose(checkerReference) , numpy.transpose(numpy.linalg.pinv(checkerValues)) )
 	numpy.savetxt(basepath+metadata['msi2xyzFile'],checkerRatio,header='Matrix of XYZ x MSI Wavelengths, load with numpy.loadtxt()') 
 def nextNeededProject(projects):
-	matches = (f for f in projects if exists(basepath+f) and not exists(basepath+f+'/Transform'))
-	# matches = (f for f in projects if exists(basepath+f) and not exists(basepath+f+'/Color'))
+	# matches = (f for f in projects if exists(basepath+f) and not exists(basepath+f+'/Transform'))
+	matches = (f for f in projects if exists(basepath+f) and not exists(basepath+f+'/Color'))
 	return next(matches,None)
-def blurdivide(img,sigma):
+def blurDivide(img,sigma):
 	if not img.dtype == "float32":
 		img = img_as_float32(img)
 	numerator = filters.median(img) # default is 3x3, same as RLE suggested
 	denominator = filters.gaussian(img,sigma=sigma)
 	ratio = numpy.divide(numerator,denominator,out=numpy.zeros_like(numerator),where=denominator!=0)
 	return ratio
-def flattenrotate(fullpath):
+
+def flatten(unflat,flat):
+	return numpy.divide(unflat*numpy.average(flat),flat,out=numpy.zeros_like(unflat*numpy.average(flat)),where=flat!=0)
+def rotate(img,rotation): 
+	if rotation == 90:
+		img = numpy.rot90(img,k=3)
+	elif rotation == 180:
+		img = numpy.rot90(img,k=2)
+	elif rotation == 270:
+		img = numpy.rot90(img,k=1)
+	else:
+		logger.info("No rotation identified")
+	return img
+
+def findFlat(filename,fullpath): # replaces major portion of flattenrotate
+	if not 'flats' in metadata:
+		logger.error("It is necessary to specify relative path to flats in YAML metadata")
+		exit("It is necessary to specify relative path to flats in YAML metadata")
+	try: # find exact file in DNG header
+		exif = pyexifinfo.get_json(fullpath)
+		exifflat = exif[0]["IPTC:Keywords"][11] # specific to MegaVision
+		if exifflat.endswith('.dn'):
+			exifflat = exifflat+'g' 
+		match = exifflat
+	except: 
+		try: # find last 11 character match in filenames
+			for flatFile in listdir(basepath+metadata['flats']):
+				if flatFile[-11:] == fullpath[-11:]:
+					logger.info('Found 11 character match: '+filename+' ~ '+flatFile)
+					match = flatFile
+			assert match
+		except:
+			try: # find last 7 character match in filenames
+				for flatFile in listdir(basepath+metadata['flats']):
+					print("Looking for",fullpath[-7:],"at end of",flatFile)
+					if flatFile[-7:] == fullpath[-7:]:
+						logger.info('Found 7 character match: '+filename+' ~ '+flatFile)
+						match = flatFile
+				assert match
+			except:
+				logger.error("Unable to find flatfile for this capture")
+				exit("Unable find flatfile for this capture")
+	img = openImageFile(basepath+metadata['flats']+match)
+	return img
+def flattenrotate(fullpath): # deprecated and replced with findFlat(), flatten(), findRotation(), and rotate()
 		file = fullpath.split('/')[-1][:-4] # filename is everything after the last forward slash, and remove the extension too
 		if exists(cachepath+'flattened/'+file+'.tif'): # check cache
 				logger.info("Found in cache: flattened/"+file+'.tif')
@@ -214,11 +270,6 @@ def flattenrotate(fullpath):
 		else:
 				with rawpy.imread(fullpath) as raw:
 						capture = raw.raw_image.copy()
-				exif = pyexifinfo.get_json(fullpath)
-				exifflat = exif[0]["IPTC:Keywords"][11] # was index 11 n array of keywords in 2017, likely to be different in 2023
-				if exifflat.endswith('.dn'):
-					exifflat = exifflat+'g' # the last letter got cut off in 2017, likely to be different in 2023
-				exiforientation = exif[0]["EXIF:Orientation"]
 				flatsdir = metadata['flats']
 				flatpath = basepath+flatsdir+exifflat
 				if not exists(flatpath): # if metadata doesn't work look for file in directory with right index number
@@ -233,6 +284,14 @@ def flattenrotate(fullpath):
 				flattenedfloat = numpy.divide(capture*numpy.average(flat),flat,out=numpy.zeros_like(capture*numpy.average(flat)),where=flat!=0)
 				# might make sense to split flatten and rotate into separate functions
 				# look for rotation in yaml, exif, or filename
+				if 'rotation' in metadata:
+					print("I think something got lost or duplicated here but ignoring because deprecated anyway")
+				else:
+					exif = pyexifinfo.get_json(fullpath)
+					exifflat = exif[0]["IPTC:Keywords"][11] # was index 11 n array of keywords in 2017, likely to be different in 2023
+					if exifflat.endswith('.dn'):
+						exifflat = exifflat+'g' # the last letter got cut off in 2017, likely to be different in 2023
+					exiforientation = exif[0]["EXIF:Orientation"]
 				if exiforientation == "Rotate 90 CW": # counter-intuitive, read as rotated 90 CW and rotate 270 to correct
 						flattenedfloat = numpy.rot90(flattenedfloat,k=3)
 				elif exiforientation == "Rotate 180":
@@ -253,7 +312,59 @@ def flattenrotate(fullpath):
 				makedirs(cachepath+'flattened/',mode=0o755,exist_ok=True)
 				io.imsave(cachepath+'flattened/'+file+'.tif',flattenedfloat,check_contrast=False)
 		return flattenedfloat
-def readnblur(q,fullpath,sigma):
+def findRotation(filename,fullpath): # replaces major portion of flattenrotate
+	if 'rotation' in metadata:
+		rotation = metadata['rotation']
+		logger.info('Using rotation of '+str(rotation)+'° based on yaml metadata')
+	else:
+		exif = pyexifinfo.get_json(fullpath)
+		exiforientation = exif[0]["EXIF:Orientation"]
+		if exiforientation == 'Rotate 90 CW':
+			rotation = 90
+		elif exiforientation == 'Rotate 180':
+			rotation = 180
+		elif exiforientation == 'Rotate 270 CW':
+			rotation = 270
+		elif exiforientation == 'Rotate 90 CCW':
+			rotation = 270
+	return rotation
+def blurDivide(img,sigma): 
+	if not img.dtype == "float32":
+		img = img_as_float32(img)
+	numerator = filters.median(img) # default is 3x3, same as RLE suggested
+	denominator = filters.gaussian(img,sigma=sigma)
+	ratio = numpy.divide(numerator,denominator,out=numpy.zeros_like(numerator),where=denominator!=0)
+	return ratio
+def prepImg(q,fullpath,sigma): # replaces readnblur
+	filename = fullpath.split('/')[-1][:-4]
+	blurCacheFile = cachepath+'denoise/sigma'+str(sigma)+'/'+filename+'.tif'
+	flattenedCacheFile = cachepath+'flattened/'+filename+'.tif'
+	if exists(blurCacheFile): # Already got to blur and divide for this sigma, just need to return and move on
+		img = io.imread(blurCacheFile)
+		logger.info(blurCacheFile+' found in cache')
+	else:
+		if exists(flattenedCacheFile):
+			img =  io.imread(flattenedCacheFile)
+			logger.info(flattenedCacheFile+' found in cache')
+		else: 
+			img = openImageFile(fullpath)
+			img = img_as_float32(img) 
+			flatImg = findFlat(filename,fullpath) 
+			img = flatten(img,flatImg)
+			rotation = findRotation(filename,fullpath) 
+			img = rotate(img,rotation) 
+			img = img_as_float32(img)
+			io.imsave(flattenedCacheFile,img,check_contrast=False)
+			logger.info(flattenedCacheFile+' saved to cache')
+		if sigma > 0:
+			img = blurDivide(img,sigma) 
+			img = exposure.rescale_intensity(img)
+			img = img_as_float32(img)
+			io.imsave(blurCacheFile,img,check_contrast=False)
+			logger.info(blurCacheFile+' saved to cache')
+	q.put(img)
+
+def readnblur(q,fullpath,sigma): # deprecated and replaced with prepImg
 		file = fullpath.split('/')[-1][:-4] 
 		if exists(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif'): 
 				logger.info(file+".tif found in cache")
@@ -266,7 +377,7 @@ def readnblur(q,fullpath,sigma):
 				elif (fullpath.endswith('.dng')): # if ends in dng then flatten and rotate
 						img = flattenrotate(fullpath)
 				if (sigma > 0):
-						img = blurdivide(img,sigma)
+						img = blurDivide(img,sigma)
 						img = exposure.rescale_intensity(img)
 						makedirs(cachepath+'denoise/sigma'+str(sigma)+'/',mode=0o755,exist_ok=True)
 						io.imsave(cachepath+'denoise/sigma'+str(sigma)+'/'+file+'.tif',img,check_contrast=False)
@@ -283,7 +394,7 @@ def stacker(sigma):
 				continue
 			fullpath = basepath+project+'/'+imageset+'/'+file
 			countinput += 1
-			p = multiprocessing.Process(target=readnblur,args=(q,fullpath,sigma))
+			p = multiprocessing.Process(target=prepImg,args=(q,fullpath,sigma)) # replace readnblur() with prepImg()
 			processes.append(p)
 			p.start()
 	for process in processes: 
@@ -633,6 +744,10 @@ else:
 	logger.info("Not doing color processing")
 
 for sigma in sigmas:
+	if not exists(cachepath+'flattened/'): # should only be necessary first run on a machine
+		makedirs(cachepath+'flattened/',mode=0o755,exist_ok=True)
+	if not exists(cachepath+'denoise/sigma'+str(sigma)+'/'): # should only be necessary first run on a machine
+		makedirs(cachepath+'denoise/sigma'+str(sigma)+'/',mode=0o755,exist_ok=True)
 	stack, countinput = stacker(sigma)
 	# turn image cube into a long rectangle
 	nlayers,fullh,fullw = stack.shape

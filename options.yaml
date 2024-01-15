@@ -48,6 +48,7 @@ settings:
   color:
     illuminant: D65
 basepaths: 
+  - /storage/JubPalProj/Hereford/Hereford_Gospels/
   - /storage/JubPalProj/Ambrosiana2023/Ambrosiana_F130sup/
   - /storage/JubPalProj/Videntes/BritishLibrary_AddMS10049/
   - /storage/JubPalProj/Videntes/Unknown_MappaMundi/
