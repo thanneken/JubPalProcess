@@ -218,8 +218,15 @@ def blurDivide(img,sigma):
 	denominator = filters.gaussian(img,sigma=sigma)
 	ratio = numpy.divide(numerator,denominator,out=numpy.zeros_like(numerator),where=denominator!=0)
 	return ratio
-
 def flatten(unflat,flat):
+	if metadata['blurImage'] == "median3":
+		logger.info("Blurring image with 3x3 median")
+		unflat = filters.median(unflat) # default is 3x3
+	if metadata['blurFlat'] > 0: 
+		logger.info("Blurring flat with sigma "+str(metadata['blurFlat']))
+		flat = filters.gaussian(flat,sigma=metadata['blurFlat'])
+	# logger.warning('Temporary blur of unflat is probably not sustainable')
+	# unflat = filters.gaussian(unflat,sigma=metadata['blurFlat'])
 	return numpy.divide(unflat*numpy.average(flat),flat,out=numpy.zeros_like(unflat*numpy.average(flat)),where=flat!=0)
 def rotate(img,rotation): 
 	if rotation == 90:

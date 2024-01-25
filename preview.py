@@ -1,6 +1,6 @@
 #!/home/thanneken/python/miniconda3/bin/python
 from os import listdir, makedirs, path, scandir
-from skimage import io, img_as_ubyte, exposure
+from skimage import io, img_as_ubyte, exposure, filters
 import rawpy
 import numpy 
 import yaml 
@@ -40,6 +40,11 @@ def flatten(img,imageIndex):
 		flat = openrawfile(flatFile) 
 	else:
 		flat = opentiffile(flatFile)
+	print("Blurring unflat with 3x3 median")
+	img = filters.median(img) # default is 3x3
+	if metadata['default']['blurFlat'] > 0: 
+		print("Blurring flat with sigma "+str(metadata['default']['blurFlat']))
+		flat = filters.gaussian(flat,sigma=metadata['default']['blurFlat'])
 	return numpy.divide(img*numpy.average(flat),flat,out=numpy.zeros_like(img*numpy.average(flat)),where=flat!=0)
 def rotate(img,side):
 	if rotation == 0:
