@@ -48,6 +48,7 @@ settings:
   color:
     illuminant: D65
 basepaths: 
+  - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_C73inf/
   - /storage/JubPalProj/Hereford/Hereford_Gospels/
   - /storage/JubPalProj/Ambrosiana2023/Ambrosiana_F130sup/
   - /storage/JubPalProj/Videntes/BritishLibrary_AddMS10049/
@@ -56,7 +57,6 @@ basepaths:
   - /storage/JubPalProj/Lazarus/Triv_PsalterArmorial/
 # - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_F130sup/
 # - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_O39sup/
-# - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_C73inf/
 # - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_A79inf/
 # - /home/thanneken/Projects/
 # projects have been moved to yaml files in each basepath

@@ -350,9 +350,12 @@ def prepImg(q,fullpath,sigma): # replaces readnblur
 		img = io.imread(blurCacheFile)
 		logger.info(blurCacheFile+' found in cache')
 	else:
-		if exists(flattenedCacheFile):
-			img =  io.imread(flattenedCacheFile)
+		if 'NoGamma' in fullpath: # if image is already flattened just open and put in queue
+			logger.info(fullpath+' does not need to be flattened')
+			img = io.imread(fullpath)
+		elif exists(flattenedCacheFile):
 			logger.info(flattenedCacheFile+' found in cache')
+			img =  io.imread(flattenedCacheFile)
 		else: 
 			img = openImageFile(fullpath)
 			img = img_as_float32(img) 
@@ -557,8 +560,9 @@ if interactive:
 	metadata = {}
 	metadata.update(projects['default'])
 	metadata.update(projects[project])
-	metadata['white'].update(projects['default']['white'])
-	metadata['white'].update(projects[project]['white'])
+	if 'white' in metadata: 
+		metadata['white'].update(projects['default']['white'])
+		metadata['white'].update(projects[project]['white'])
 
 	## select one or more methods
 	if len(jubpaloptions["options"]["methods"]) > 1:
