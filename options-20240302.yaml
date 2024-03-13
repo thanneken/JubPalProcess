@@ -13,12 +13,18 @@ options:
     - False
     - True
   methods: 
-    - fica
-    - mnf
-    - pca
     - color
-  n_components: # fica always runs at max so this selection applies to pca and mnf
+    - pca
+    - mnf
+    - fica
+    #- kpca  
+    #- specembed
+    #- cca
+  n_components: 
     - max
+    #- 1
+    #- 2
+    #- 3 # this can be problematic if don't want assumed to be rgb
     - 5
     - 10
 output: 
@@ -26,21 +32,24 @@ output:
     - equalize
     - adaptive
     #- rescale
+    #- none
+  multilayer:
+    - separate files
+    #- stack
   fileformats: 
     - jpg
     - tif
     #- png
 settings:
-  fica_max_iter: 100 # default is 100, 100000 took days, 10000 took about 4 hours, 1000 reasonable once past testing
+  fica_max_iter: 1000 # default is 100, 100000 took days, 10000 took about 4 hours
   fica_tol: 0.0001 # default is 0.0001, 0.00001 took days, .001 fails with error, 0.01 still took a while and sometimes fails at 10k iterations
   cachepath: /storage/JubPalProj/cache/
   logfile: /home/thanneken/logs/jubpalprocess.log
-  loglevel: DEBUG # DEBUG shows progress, INFO shows less, WARNING nearly off, CRITICAL is off
   color:
     illuminant: D65
 basepaths: 
-  - /storage/JubPalProj/Hereford/Hereford_Gospels/
   - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_C73inf/
+  - /storage/JubPalProj/Hereford/Hereford_Gospels/
   - /storage/JubPalProj/Ambrosiana2023/Ambrosiana_F130sup/
   - /storage/JubPalProj/Videntes/BritishLibrary_AddMS10049/
   - /storage/JubPalProj/Videntes/Unknown_MappaMundi/
@@ -50,3 +59,4 @@ basepaths:
 # - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_O39sup/
 # - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_A79inf/
 # - /home/thanneken/Projects/
+# projects have been moved to yaml files in each basepath

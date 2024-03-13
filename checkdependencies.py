@@ -62,7 +62,7 @@ except:
 else:
 	print("Success! logging")
 try:
-	from sklearn.decomposition import FastICA, PCA, KernelPCA
+	from sklearn.decomposition import FastICA, PCA
 except:
 	print("Failed to import from sklearn.decomposition, consider conda install conda-forge::scikit-learn")
 else:
@@ -92,14 +92,15 @@ except:
 else:
 	print("Success! pyexifinfo")
 try:
-	from megaman.geometry import Geometry
+	from math import floor
 except:
-	print("Failed to import from megaman.geometry, only used for spectral embedding which is deprecated anyway")
+	print("Failed to import floor from math")
 else:
-	print("Success! megaman.geometry")
+	print("Success! math.floor")
 try:
-	from megaman.embedding import (Isomap, LocallyLinearEmbedding, LTSA, SpectralEmbedding)
+	from psutil import virtual_memory, cpu_count
 except:
-	print("Failed to import from megaman.embedding, only used for spectral embedding which is deprecated anyway")
+	print("Failed to import from psutil. Consider conda install conda-forge::psutil")
 else:
-	print("Success! megaman.geometry")
+	print("Success! virtual_memory and cpu_count from psutil")
+
