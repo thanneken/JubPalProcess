@@ -13,7 +13,10 @@ import yaml
 import inquirer
 import numpy 
 import rawpy
-import pyexifinfo
+try:
+    import pyexifinfo
+except:
+    print('Unable to load pyexifinfo, only useful if intend to read flatpath from dng metadata (MegaVision)')
 
 def main():
 	getInstructions()
@@ -65,23 +68,23 @@ def getInstructions():
 		instructions = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
 	startLogging(instructions['settings']['logfile'],instructions['settings']['loglevel'])
 	del instructions['document'] , instructions['tip']
-	logger.debug('Read instructions from %s'%(optionsfile))
+	logger.info('Read instructions from %s'%(optionsfile))
 	if 'noninteractive' in argv:
 		instructions['options']['interactive'] = False
-		logger.debug('Using non-interactive mode as instructed by commandline argument')
+		logger.info('Using non-interactive mode as instructed by commandline argument')
 	elif len(instructions['options']['interactive']) > 1:
 		questions = [inquirer.List('interactive','Proceed with interactive choices?',choices=instructions['options']['interactive'])]
 		selections = inquirer.prompt(questions)
 		instructions['options']['interactive'] = selections['interactive']
-		logger.debug('User selected interactive mode %s'%(instructions['options']['interactive']))
+		logger.info('User selected interactive mode %s'%(instructions['options']['interactive']))
 	else:
 		instructions['options']['interactive']	= instructions["options"]["interactive"][0]
-		logger.debug('Interactive mode is %s because that is the only uncommented option in options file'%(instructions['options']['interactive']))
+		logger.info('Interactive mode is %s because that is the only uncommented option in options file'%(instructions['options']['interactive']))
 	if instructions['options']['interactive']:
-		logger.debug('Asking user to provide instructions')
+		logger.info('Asking user to provide instructions')
 		askUser()
 	else:
-		logger.debug('Reading instructions based on default values in project file')
+		logger.info('Reading instructions based on default values in project file')
 		readProjectDefaults()
 
 def askUser():
@@ -89,17 +92,17 @@ def askUser():
 		questions = [inquirer.List('basepath','Select basepath for source data',choices=instructions['basepaths'])]
 		selections = inquirer.prompt(questions)
 		instructions['basepath'] = selections['basepath']
-		logger.debug('User selected basepath %s'%(instructions['basepath']))
+		logger.info('User selected basepath %s'%(instructions['basepath']))
 	else:
 		instructions['basepath'] = instructions['basepaths'][0]
-		logger.debug('Only uncommented basepath in options file is %s'%(instructions['basepath']))
+		logger.info('Only uncommented basepath in options file is %s'%(instructions['basepath']))
 	del instructions['basepaths']
-	logger.debug('Looking for projectFile in selected basepath')
+	logger.info('Looking for projectFile in selected basepath')
 	projectFile = instructions['basepath']+instructions['basepath'].split('/')[-2]+'.yaml'
 	if exists(projectFile):
 		with open(projectFile,'r') as unparsedyaml:
 			targets = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
-		logger.debug('Read project file %s'%(projectFile))
+		logger.info('Read project file %s'%(projectFile))
 	else:
 	 	exit('Unable to find '+projectFile)
 	targetChoices = list(targets.keys())
@@ -108,10 +111,10 @@ def askUser():
 		questions = [inquirer.List('target','Select target',choices=targetChoices)]
 		selections = inquirer.prompt(questions)
 		target = selections['target']
-		logger.debug('User selected target %s'%(target))
+		logger.info('User selected target %s'%(target))
 	else:
 		target = targetChoices[0]
-		logger.debug('Only offered target is %s'%(target))
+		logger.info('Only offered target is %s'%(target))
 	instructions['target'] = target
 	instructions.update(targets['default'])
 	instructions.update(targets[target])
@@ -125,14 +128,13 @@ def askUser():
 			selections = inquirer.prompt(questions)
 			methods = selections['methods']
 		instructions['options']['methods'] = selections['methods']
-		logger.debug('User selected methods are %s'%(instructions['options']['methods']))
+		logger.info('User selected methods are %s'%(instructions['options']['methods']))
 	else:
-		logger.debug('Only method uncommented in options file is %s'%(instructions['options']['methods']))
+		logger.info('Only method uncommented in options file is %s'%(instructions['options']['methods']))
 	if any(x in instructions['options']['methods'] for x in ['kpca','pca','mnf','fica']):
 		askUserTransformationOptions()
 	else:
-		logger.debug('Cleaning up instructions for the sake the log')
-		del instructions['imagesets'],instructions['options']['sigmas'],instructions['options']['skipuvbp']
+		logger.info('Cleaning up instructions for the sake the log')
 		del instructions['options']['n_components'],instructions['noisesamples'],instructions['rois'],instructions['output']['histograms']
 	if len(instructions['output']['fileformats']) > 1:
 		questions = [ inquirer.Checkbox('fileformats','Select file format(s) to output',choices=instructions['output']['fileformats']) ]
@@ -142,7 +144,7 @@ def askUser():
 			fileformats = selections['fileformats']
 		instructions['output']['fileformats'] = fileformats
 	else:
-	 	logger.debug('Only fileformat uncommented in options file is %s'%(instructions['output']['fileformats'][0]))
+	 	logger.info('Only fileformat uncommented in options file is %s'%(instructions['output']['fileformats'][0]))
 
 def askUserTransformationOptions():
 	if len(instructions['imagesets']) > 1:
@@ -152,9 +154,9 @@ def askUserTransformationOptions():
 			selections = inquirer.prompt(questions)
 			imagesets = selections['imagesets']
 		instructions['imagesets'] = imagesets
-		logger.debug('User selected imagesets %s'%(instructions['imagesets']))
+		logger.info('User selected imagesets %s'%(instructions['imagesets']))
 	else:
-		logger.debug('Only option available for imagesets is %s'%(instructions['imagesets']))
+		logger.info('Only option available for imagesets is %s'%(instructions['imagesets']))
 	if len(instructions['options']['sigmas']) > 1:
 		questions = [ inquirer.Checkbox('sigmas','Sigma for RLE blur and divide?',choices=instructions['options']['sigmas']) ]
 		sigmas = []
@@ -162,17 +164,17 @@ def askUserTransformationOptions():
 			selections = inquirer.prompt(questions)
 			sigmas = selections['sigmas']
 		instructions['options']['sigmas'] = sigmas 
-		logger.debug('User selected sigma options %s'%(instructions['options']['sigmas']))
+		logger.info('User selected sigma options %s'%(instructions['options']['sigmas']))
 	else:
-		logger.debug('Only sigma value uncommented in options file is %s'%(instructions['options']['sigmas']))
+		logger.info('Only sigma value uncommented in options file is %s'%(instructions['options']['sigmas']))
 	if len(instructions['options']['skipuvbp']) > 1:
 		questions = [ inquirer.List('skipuvbp','Skip files with UVB_ or UVP_ in filename?',choices=instructions['options']['skipuvbp']) ]
 		selections = inquirer.prompt(questions)
 		instructions['options']['skipuvbp'] = selections['skipuvbp']
-		logger.debug('User selected Skip files with UVB_ or UVP_ in filename %s'%(instructions['options']['skipuvbp']))
+		logger.info('User selected Skip files with UVB_ or UVP_ in filename %s'%(instructions['options']['skipuvbp']))
 	else:
 		instructions['options']['skipuvbp'] = instructions['options']['skipuvbp'][0] 
-		logger.debug('Only option available for skip files with UVB_ or UVP_ in filename is %s'%(instructions['options']['skipuvbp']))
+		logger.info('Only option available for skip files with UVB_ or UVP_ in filename is %s'%(instructions['options']['skipuvbp']))
 	
 	if len(instructions['rois']) > 1:
 		questions = [inquirer.List('roi','Select Region Of Interest (ROI)',choices=instructions['rois'].keys())]
@@ -192,10 +194,10 @@ def askUserTransformationOptions():
 		questions = [ inquirer.List('n_components','How many components to generate for PCA and MNF? (ICA is always max)',choices=instructions['options']['n_components']) ]
 		selections = inquirer.prompt(questions)
 		instructions['options']['n_components'] = selections['n_components']
-		logger.debug('User selected number of components %s'%(instructions['options']['n_components']))
+		logger.info('User selected number of components %s'%(instructions['options']['n_components']))
 	else:
 		instructions['options']['n_components'] = instructions['options']['n_components'][0] 
-		logger.debug('Only option available for number of components is %s'%(instructions['options']['n_components']))
+		logger.info('Only option available for number of components is %s'%(instructions['options']['n_components']))
 	if len(instructions['output']['histograms']) > 1:
 		questions = [ inquirer.Checkbox('histograms','Select histogram adjustment(s) for final product',choices=instructions['output']['histograms']) ]
 		histograms = []
@@ -211,12 +213,12 @@ def askUserTransformationOptions():
 def readProjectDefaults():
 	instructions['basepath'] = instructions['basepaths'][0]
 	del instructions['basepaths']
-	logger.debug('Looking for projectFile in selected basepath')
+	logger.info('Looking for projectFile in selected basepath')
 	projectFile = instructions['basepath']+instructions['basepath'].split('/')[-2]+'.yaml'
 	if exists(projectFile):
 		with open(projectFile,'r') as unparsedyaml:
 			targets = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
-		logger.debug('Read project file %s'%(projectFile))
+		logger.info('Read project file %s'%(projectFile))
 	else:
 	 	exit('Unable to find '+projectFile)
 	target = nextNeededTarget(targets.keys())
@@ -254,7 +256,7 @@ def cacheFlattened():
 	for imageset in instructions['imagesets']:
 		for file in listdir(instructions['basepath']+instructions['target']+'/'+imageset):
 			if ((instructions['options']['skipuvbp'] == True) and (("UVB_" in file) or ("UVP_" in file))):
-				logger.debug('Skipping %s due to registration issues'%s(file))
+				logger.info('Skipping %s due to registration issues'%s(file))
 				continue
 			inPaths.append(instructions['basepath']+instructions['target']+'/'+imageset+'/'+file)
 	global countInput
@@ -273,7 +275,7 @@ def cacheFlattened():
 		for i in range(threadsMax):
 			Process(target=cacheFlattenedThread,args=(taskQueue,doneQueue)).start()
 		for i in range(len(unflatPaths)):
-			logger.debug(doneQueue.get())
+			logger.info(doneQueue.get())
 		for i in range(threadsMax):
 			taskQueue.put('STOP')
 
@@ -321,7 +323,7 @@ def findFlat(path):
 		exifflat = exif[0]["IPTC:Keywords"][11] 
 		if exifflat.endswith('.dn'):
 			exifflat = exifflat+'g' 
-		logger.debug('Found path to flatfile in MegaVision DNG header')
+		logger.info('Found path to flatfile in MegaVision DNG header')
 		match = exifflat
 	except: 
 		try: 
@@ -390,7 +392,7 @@ def cacheBlurDivide():
 	for imageset in instructions['imagesets']:
 		for file in listdir(instructions['basepath']+instructions['target']+'/'+imageset):
 			if ((instructions['options']['skipuvbp'] == True) and (("UVB_" in file) or ("UVP_" in file))):
-				logger.debug('Skipping %s due to registration issues'%s(file))
+				logger.info('Skipping %s due to registration issues'%s(file))
 				continue
 			inPaths.append(instructions['basepath']+instructions['target']+'/'+imageset+'/'+file)
 	bdCache = []
@@ -411,7 +413,7 @@ def cacheBlurDivide():
 		for i in range(threadsMax):
 			Process(target=cacheBlurDivideThread,args=(taskQueue,doneQueue)).start()
 		for i in range(len(bdCache)):
-			logger.debug(doneQueue.get())
+			logger.info(doneQueue.get())
 		for i in range(threadsMax):
 			taskQueue.put('STOP')
 
@@ -438,9 +440,6 @@ def processMethods():
 		else:
 			for sigma in instructions['options']['sigmas']:
 				processList.append(['transform',(method,sigma)])
-	if not exists(instructions['basepath']+'Transform/'): 
-		logger.info('Creating Transform directory')
-		makedirs(instructions['basepath']+'Transform/',mode=0o755,exist_ok=True)
 	transformTaskQueue = Queue()  
 	transformDoneQueue = Queue()
 	for processJob in processList:
@@ -472,13 +471,19 @@ def processMethodsThread(transformTaskQueue,transformDoneQueue):
 				layer = stack[component,:,:]
 				for histogram in instructions['output']['histograms']:
 					histogramList.append(['histogram',(layer,sigma,method,component,histogram)]) 
-			logger.debug('%s %s histogram adjustments ready to queue'%(current_process().name,len(histogramList)))
+			logger.info('%s %s histogram adjustments ready to queue'%(current_process().name,len(histogramList)))
 			histogramTaskQueue = Queue()
 			histogramDoneQueue = Queue()
 			for histogramJob in histogramList:
-				histogramTaskQueue.put(histogramJob)
-			histogramThreads = threadsMax # could be a lot since each transform thread will spawn this many histogram threads
-			logger.debug('%s spawning %s sub processes for histogram adjustments'%(current_process().name,histogramThreads))
+			    histogramTaskQueue.put(histogramJob)
+			# if len(histogramList) < threadsMax/4: histogramThreads = len(histogramList)
+			if threadsTransformFloor == 1:
+			    histogramThreads = threadsMax
+			elif threadsTransformFloor > 1:
+			    histogramThreads = threadsTransformFloor # round((threadsMax-threadsTransformFloor)/threadsTransformFloor,None)-1
+			else:
+			    histogramThreads = threadsMax 
+			logger.info('%s spawning %s sub processes for histogram adjustments'%(current_process().name,histogramThreads))
 			for i in range(histogramThreads):
 				Process(target=processHistogramsThread,args=(histogramTaskQueue,histogramDoneQueue)).start()
 			for i in range(len(histogramList)):
@@ -532,7 +537,7 @@ def readStack(sigma):
 	for imageset in instructions['imagesets']:
 		for file in listdir(instructions['basepath']+instructions['target']+'/'+imageset):
 			if ((instructions['options']['skipuvbp'] == True) and (("UVB_" in file) or ("UVP_" in file))):
-				logger.debug('Skipping %s due to registration issues'%s(file))
+				logger.info('Skipping %s due to registration issues'%s(file))
 				continue
 			file = instructions['basepath']+instructions['target']+'/'+imageset+'/'+file
 			if sigma > 0:
@@ -623,7 +628,7 @@ def checkColorReady():
 	if not 'color' in instructions['options']['methods']:
 		logger.info("Color processing not selected")
 		return False
-	if 'x' in instructions['white']:
+	if 'white' in instructions and 'x' in instructions['white']:
 		logger.info("White patch is defined for this page")
 	else:
 		logger.info("White patch is not defined for this page")

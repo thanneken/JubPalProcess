@@ -99,6 +99,22 @@ It also can create spreadsheets of measurements across a session.
 1. `measurecolor.py` was developed to compare the ΔE values of different LAB images and reference tables.
 1. `checkercolor.py` is a standalone version of the “color” method built into process.py.
 
+## Messages
+
+> DeprecationWarning: `alltrue` is deprecated as of NumPy 1.25.0, and will be removed in NumPy 2.0. Please use `all` instead.
+
+This warning is for the fine people who bring us the MNF module. Please ignore.
+
+> ConvergenceWarning: FastICA did not converge. Consider increasing tolerance or the maximum number of iterations.
+
+Both of these settings can be adjusted in `options.yaml`. 
+Increasing tolerance might avoid the warning message and improve processing time, but it will not improve quality. 
+(Quality might stay the same.) 
+Increasing the maximum number of interations will increase processing time and may or may not improve quality. 
+If you run systematic tests to evaluate these settings, please share your results. 
+
+---
+
 If most of this makes sense to you and we don’t already know each other, please be in touch.
 It’s a small community.
 
