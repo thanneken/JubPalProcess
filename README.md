@@ -1,6 +1,9 @@
 # JubPalProcess
 Python tools for processing images from multispectral data of cultural heritage artifacts
 
+**New Feature 5/13/2024** Options and instructions for a single data set can be put into a single file called instructions.yaml and specified on the command line. 
+This is useful for using an external queue mechanism, such as slurm on a high performance computing cluster.
+
 **Milestone 3/13/2024** Though still a public alpha, `process.py` has undergone a significant rewrite to improve multithreaded processing and memory management. 
 The former version is still available as `process-20240302.py`.
 

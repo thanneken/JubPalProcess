@@ -7,7 +7,8 @@ from sklearn.decomposition import PCA, FastICA
 from spectral import calc_stats, noise_from_diffs, mnf
 from sys import argv
 from math import floor
-from psutil import virtual_memory, cpu_count
+from psutil import virtual_memory, cpu_count, cpu_times, cpu_percent
+from time import sleep
 import logging
 import yaml 
 import inquirer
@@ -21,27 +22,37 @@ except:
 def main():
 	getInstructions()
 	logger.info('\n'+yaml.dump(instructions)+'\n')
+	if instructions['settings']['logresources'] > 0:
+		logResourcesProcess = Process(target=logResourcesFunction,args=[instructions['settings']['logresources']])
+		logResourcesProcess.start()
 	cacheFlattened()
 	estimateResources()
 	cacheBlurDivide()
 	processMethods()
+	if instructions['settings']['logresources'] > 0:
+		logResourcesProcess.terminate() # see also join, terminate, kill, and close
 	logger.info('Concluded successfully')
 	exit("Concluded successfully")
 
+def logResourcesFunction(sleepInterval):
+	while True:
+		memAvail = round(virtual_memory()[1]/2**30,1) 
+		logger.info('Resources %s%% CPU used, %s%% RAM used, %s GB RAM available'%(cpu_percent(interval=1),virtual_memory()[2],memAvail))
+		sleep(sleepInterval)
+
 def startLogging(logfile,loglevel):
-	if exists(logfile): 
-		global logger
-		logger = logging.getLogger(__name__) 
-		logLevelObject = eval('logging.'+loglevel)
-		logging.basicConfig(
-			filename=logfile, 
-			format='%(asctime)s %(levelname)s %(message)s', 
-			datefmt='%Y%m%d %H:%M:%S', 
-			level = logLevelObject 
-		) 
-		print('Follow %s for %s progress, edit options.yaml to change log file path or log level'%(logfile,loglevel))
-	else:
-		print("Log file not specified or not found",logfile)
+	if not exists(logfile): 
+		print("Creating logfile specified but does not already exist",logfile)
+	global logger
+	logger = logging.getLogger(__name__) 
+	logLevelObject = eval('logging.'+loglevel)
+	logging.basicConfig(
+		filename=logfile, 
+		format='%(asctime)s %(levelname)s %(message)s', 
+		datefmt='%Y%m%d %H:%M:%S', 
+		level = logLevelObject 
+	) 
+	print('Follow %s for %s progress, edit options.yaml to change log file path or log level'%(logfile,loglevel))
 
 def findOptionsFile():
 	for argument in argv:
@@ -61,9 +72,41 @@ def findOptionsFile():
 	else:
 	 	exit('Cannot continue without specifying path to options.yaml')
 
-def getInstructions():
-	optionsfile = findOptionsFile()
+def readInstructionsFile(instructionsPath):
 	global instructions
+	with open(instructionsPath,'r') as unparsedyaml:
+		instructions = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
+	instructions['basepath'] = '/'.join(instructionsPath.split('/')[:-2])+'/'
+	instructions['target'] = instructionsPath.split('/')[-2]
+	if not instructions['settings']['logfile'].startswith('/'):
+		instructions['settings']['logfile'] = instructions['basepath']+instructions['target']+'/'+instructions['settings']['logfile']
+	if not instructions['settings']['cachepath'].startswith('/'):
+		instructions['settings']['cachepath'] = instructions['basepath']+instructions['target']+'/'+instructions['settings']['cachepath']
+	startLogging(instructions['settings']['logfile'],instructions['settings']['loglevel'])
+	logger.info('Read instructions from %s'%(instructionsPath))
+	logger.info('Using basepath %s'%(instructions['basepath']))
+	logger.info('Using target %s'%(instructions['target']))
+	logger.info('Using cache %s'%(instructions['settings']['cachepath']))
+	instructions['imagesets'] = instructions['transform']['imagesets']
+	instructions['roi'] = instructions['transform']['rois'][list(instructions['transform']['rois'].keys())[0]] 
+	instructions['noisesample'] = instructions['transform']['noisesamples'][list(instructions['transform']['noisesamples'].keys())[0]] 
+	instructions['options']['n_components'] = instructions['options']['n_components'][0]
+	instructions['options']['skipuvbp'] = instructions['options']['skipuvbp'][0] 
+	del instructions['transform']
+
+def getInstructions():
+	global instructions
+	for argument in argv:
+		if 'instructions.yaml' in argument:
+			if exists(argument):
+				print('Found instructions.yaml as specified on the command line')
+				readInstructionsFile(argument)
+				return
+			else:
+				print('Found instructions.yaml in command-line arguments, but the file does not exist')
+				continue
+	print("Got here")
+	optionsfile = findOptionsFile()
 	with open(optionsfile,'r') as unparsedyaml:
 		instructions = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
 	startLogging(instructions['settings']['logfile'],instructions['settings']['loglevel'])
@@ -574,8 +617,14 @@ def processPca(sigma):
 	
 def processFica(sigma):
 	memAvail = round(virtual_memory()[1]/2**30,1) 
-	max_iter = instructions['settings']['fica_max_iter']
-	tol = instructions['settings']['fica_tol']
+	if 'fica_max_iter' in instructions['settings']:
+		max_iter = instructions['settings']['fica_max_iter']
+	else:
+		max_iter = 100
+	if 'fica_tol' in instructions['settings']:
+		tol = instructions['settings']['fica_tol']
+	else:
+		tol = 0.0001 
 	logger.info('%s ICA starting with %s GB available, %s max iterations, %s tolerance'%(current_process().name,memAvail,max_iter,tol))
 	stack = readStack(sigma)
 	nlayers,fullh,fullw = stack.shape

@@ -5,10 +5,10 @@ options:
     - True
     - False
   sigmas: 
-    - 0
-    - 50
-    - 500
     - 1000
+    - 500
+    - 50
+    - 0
   skipuvbp:
     - False
     - True
@@ -16,11 +16,11 @@ options:
     - fica
     - mnf
     - pca
-    - color
+    # - color
   n_components: # fica always runs at max so this selection applies to pca and mnf
-    - max
-    - 5
     - 10
+    - 5
+    - max
 output: 
   histograms: 
     - equalize
@@ -39,8 +39,8 @@ settings:
   color:
     illuminant: D65
 basepaths: 
-  - /storage/JubPalProj/Hereford/Hereford_Gospels/
   - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_C73inf/
+  - /storage/JubPalProj/Hereford/Hereford_Gospels/
   - /storage/JubPalProj/Ambrosiana2023/Ambrosiana_F130sup/
   - /storage/JubPalProj/Videntes/BritishLibrary_AddMS10049/
   - /storage/JubPalProj/Videntes/Unknown_MappaMundi/
