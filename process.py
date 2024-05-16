@@ -15,9 +15,15 @@ import inquirer
 import numpy 
 import rawpy
 try:
-    import pyexifinfo
+	import pyexifinfo
 except:
-    print('Unable to load pyexifinfo, only useful if intend to read flatpath from dng metadata (MegaVision)')
+	print('Unable to load pyexifinfo, only useful if intend to read flatpath from dng metadata (MegaVision)')
+try:
+	import pickle
+except: 
+	print('You will want to install the pickle if you want to pickle or unpickle noise and stats from other sequences')
+else:
+	saveStats = True
 
 def main():
 	getInstructions()
@@ -105,7 +111,6 @@ def getInstructions():
 			else:
 				print('Found instructions.yaml in command-line arguments, but the file does not exist')
 				continue
-	print("Got here")
 	optionsfile = findOptionsFile()
 	with open(optionsfile,'r') as unparsedyaml:
 		instructions = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
@@ -350,6 +355,8 @@ def needsFlattening(path):
 		return True
 	elif 'unflat' in path:
 		return True
+	elif 'Flat' in path:
+		return False
 	elif 'flat' in path:
 		return False
 	elif '.tif' in path:
@@ -366,6 +373,7 @@ def findFlat(path):
 		exifflat = exif[0]["IPTC:Keywords"][11] 
 		if exifflat.endswith('.dn'):
 			exifflat = exifflat+'g' 
+		assert(exists(exifflat))
 		logger.info('Found path to flatfile in MegaVision DNG header')
 		match = exifflat
 	except: 
@@ -383,25 +391,25 @@ def findFlat(path):
 						match = flatFile
 				assert match
 			except:
-				logger.error("Unable to find flatfile for this capture")
-				exit("Unable find flatfile for this capture")
+				logger.error("Unable to find flatfile for %s"%(path))
+				exit("Unable find flatfile for %s"%(path))
 	return openImageFile(instructions['basepath']+instructions['flats']+match)
 
 def flatten(img,flatImg):
-	if instructions['blurImage'] == "median3":
+	if 'blurImage' in instructions and instructions['blurImage'] == "median3":
 		logger.info("Blurring image with 3x3 median")
 		img = filters.median(img) # default is 3x3
-	if instructions['blurFlat'] > 0: 
+	if 'blurFlat' in instructions and instructions['blurFlat'] > 0: 
 		logger.info("Blurring flat with sigma "+str(instructions['blurFlat']))
 		flatImg = filters.gaussian(flatImg,sigma=instructions['blurFlat'])
 	return numpy.divide(img*numpy.average(flatImg),flatImg,out=numpy.zeros_like(img*numpy.average(flatImg)),where=flatImg!=0)
 
 def rotate(img): 
-	if instructions['rotation'] == 90:
+	if 'rotation' in instructions and instructions['rotation'] == 90:
 		img = numpy.rot90(img,k=3)
-	elif instructions['rotation'] == 180:
+	elif 'rotation' in instructions and  instructions['rotation'] == 180:
 		img = numpy.rot90(img,k=2)
-	elif instructions['rotation'] == 270:
+	elif 'rotation' in instructions and instructions['rotation'] == 270:
 		img = numpy.rot90(img,k=1)
 	else:
 		logger.info("No rotation identified")
@@ -585,7 +593,7 @@ def readStack(sigma):
 			file = instructions['basepath']+instructions['target']+'/'+imageset+'/'+file
 			if sigma > 0:
 				img = io.imread(cacheEquivalent(file,'sigma'+str(sigma)))
-			if needsFlattening(file):
+			elif needsFlattening(file):
 				img = io.imread(cacheEquivalent(file,'flattened'))
 			else:
 				img = io.imread(file)
@@ -609,6 +617,12 @@ def processPca(sigma):
 		n_components = instructions['options']['n_components']
 	pca = PCA(n_components=n_components)
 	pca.fit(roi)
+	if saveStats:
+		roistring = "x"+str(roix)+"y"+str(roiy)+"w"+str(roiw)+"h"+str(roih) 
+		picklePath = instructions['basepath']+instructions['target']+'/stats/'+instructions['target']+'_r'+str(countInput)+'_bd'+str(sigma)+'_pca_'+roistring+'.pickle'
+		logger.info("%s Saving PCA stats to %s"%(current_process().name,picklePath))
+		makedirs(instructions['basepath']+instructions['target']+'/stats',mode=0o755,exist_ok=True)
+		pickle.dump(pca,open(picklePath,"wb"))
 	stack = pca.transform(stack)
 	stack = stack.transpose()
 	stack = stack.reshape(n_components,fullh,fullw)
@@ -637,6 +651,12 @@ def processFica(sigma):
 	n_components = nlayers # always use max even if user selects a lower number of components
 	fica = FastICA(n_components=n_components,max_iter=max_iter,tol=tol)
 	fica.fit(roi)
+	if saveStats:
+		roistring = "x"+str(roix)+"y"+str(roiy)+"w"+str(roiw)+"h"+str(roih) 
+		picklePath = instructions['basepath']+instructions['target']+'/stats/'+instructions['target']+'_r'+str(countInput)+'_bd'+str(sigma)+'_fica_'+roistring+'.pickle'
+		logger.info("%s Saving ICA stats to %s"%(current_process().name,picklePath))
+		makedirs(instructions['basepath']+instructions['target']+'/stats',mode=0o755,exist_ok=True)
+		pickle.dump(fica,open(picklePath,"wb"))
 	stack = fica.transform(stack)
 	stack = img_as_float32(stack)
 	stack = stack.transpose()
@@ -659,6 +679,13 @@ def processMnf(sigma):
 	signal = calc_stats(stack[roix:roix+roiw,roiy:roiy+roih,:]) 
 	noise = noise_from_diffs(stack[noisex:noisex+noisew,noisey:noisey+noiseh,:]) 
 	mnfr = mnf(signal,noise)
+	if saveStats:
+		roistring = "x"+str(roix)+"y"+str(roiy)+"w"+str(roiw)+"h"+str(roih) 
+		noisestring = "nx"+str(noisex)+"y"+str(noisey)+"w"+str(noisew)+"h"+str(noiseh) 
+		picklePath = instructions['basepath']+instructions['target']+'/stats/'+instructions['target']+'_r'+str(countInput)+'_bd'+str(sigma)+'_mnf_'+roistring+noisestring+'.pickle'
+		logger.info("%s Saving MNF stats to %s"%(current_process().name,picklePath))
+		makedirs(instructions['basepath']+instructions['target']+'/stats',mode=0o755,exist_ok=True)
+		pickle.dump(mnfr,open(picklePath,"wb"))
 	stack = mnfr.reduce(stack,num=n_components)
 	stack = img_as_float32(stack)
 	stack = stack.transpose()

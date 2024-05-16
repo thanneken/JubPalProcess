@@ -46,7 +46,7 @@ else:
 try:
 	import yaml 
 except:
-	print("Failed to import yaml, consider conda install conda-forge::yaml")
+	print("Failed to import yaml, consider conda install conda-forge::pyyaml")
 else:
 	print("Success! yaml")
 try:

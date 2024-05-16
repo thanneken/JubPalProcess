@@ -1,6 +1,9 @@
 # JubPalProcess
 Python tools for processing images from multispectral data of cultural heritage artifacts
 
+**New Feature 5/16/2024** `standardstats.py` can read stats from other sets with the same basic parameters. 
+`process.py` now saves stats for later reuse.
+
 **New Feature 5/13/2024** Options and instructions for a single data set can be put into a single file called instructions.yaml and specified on the command line. 
 This is useful for using an external queue mechanism, such as slurm on a high performance computing cluster.
 
