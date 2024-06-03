@@ -5,7 +5,7 @@ options:
     - True
     - False
   sigmas: 
-    - 1000
+    # - 1000
     - 500
     - 50
     - 0
@@ -16,7 +16,7 @@ options:
     - fica
     - mnf
     - pca
-    # - color
+    - color
   n_components: # fica always runs at max so this selection applies to pca and mnf
     - 10
     - 5
@@ -35,16 +35,17 @@ settings:
   fica_tol: 0.0001 # default is 0.0001, 0.00001 took days, .001 fails with error, 0.01 still took a while and sometimes fails at 10k iterations
   cachepath: /storage/JubPalProj/cache/
   logfile: /home/thanneken/logs/jubpalprocess.log
-  loglevel: DEBUG # DEBUG shows progress, INFO shows less, WARNING nearly off, CRITICAL is off
+  loglevel: INFO # DEBUG shows progress, INFO shows less, WARNING nearly off, CRITICAL is off
+  logresources: 60
   color:
     illuminant: D65
 basepaths: 
+  - /storage/JubPalProj/Lazarus/Triv_Dante/
   - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_C73inf/
   - /storage/JubPalProj/Hereford/Hereford_Gospels/
   - /storage/JubPalProj/Ambrosiana2023/Ambrosiana_F130sup/
   - /storage/JubPalProj/Videntes/BritishLibrary_AddMS10049/
   - /storage/JubPalProj/Videntes/Unknown_MappaMundi/
-  - /storage/JubPalProj/Lazarus/Triv_Dante/
   - /storage/JubPalProj/Lazarus/Triv_PsalterArmorial/
 # - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_F130sup/
 # - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_O39sup/

@@ -28,12 +28,13 @@ else:
 def main():
 	getInstructions()
 	logger.info('\n'+yaml.dump(instructions)+'\n')
-	if instructions['settings']['logresources'] > 0:
+	if 'logresources' in instructions['settings'] and instructions['settings']['logresources'] > 0:
 		logResourcesProcess = Process(target=logResourcesFunction,args=[instructions['settings']['logresources']])
 		logResourcesProcess.start()
 	cacheFlattened()
 	estimateResources()
-	cacheBlurDivide()
+	if any(x in instructions['options']['methods'] for x in ['kpca','pca','mnf','fica']):
+		cacheBlurDivide()
 	processMethods()
 	if instructions['settings']['logresources'] > 0:
 		logResourcesProcess.terminate() # see also join, terminate, kill, and close
@@ -732,6 +733,7 @@ def checkColorReady():
 	if exists(instructions['basepath']+'Calibration/Color/msi2xyz.txt'):
 		logger.info("Found cached msi2xyz.txt in Calibration/Color directory")
 		return instructions['basepath']+'Calibration/Color/msi2xyz.txt'
+	logger.info("Looking for checker metadata in %s"%(instructions['basepath']+instructions['checkerMetadata']))
 	if exists(instructions['basepath']+instructions['checkerMetadata']):
 		instructions['msi2xyzFile']
 		logger.info("Found the ingredients to generate an msi2xyz file")
@@ -751,24 +753,32 @@ def createMsi2Xyz():
 	for visibleBand in calibration['Calibration-Color']['visibleBands']:
 		if 'sequenceShort' in calibration['Calibration-Color']:
 			sequenceName = calibration['Calibration-Color']['sequenceShort']
+		elif 'shortFilenameBase' in calibration['Calibration-Color']:
+			sequenceName = calibration['Calibration-Color']['shortFilenameBase']
 		else:
 			sequenceName = calibration['Calibration-Color']['checkerCaptureDirectory']
-		cacheFilePath = instructions['settings']['cachepath']+'flattened/'+sequenceName+'_'+visibleBand+'.tif'
-		if exists(cacheFilePath): 
-			img = io.imread(cacheFilePath)
-		else: 
-			for filename in listdir(instructions['basepath']+sequenceName+'/'+calibration['Calibration-Color']['imagesets'][0]):
-				if visibleBand in filename:
-					unflatPath = instructions['basepath']+sequenceName+'/'+calibration['Calibration-Color']['imagesets'][0]+'/'+filename
-			# img = openrawfile(instructions['basepath']+'../Calibration/Calibration-Color/'+checkerMetadata['imagesets'][0]+'/'+checkerMetadata['shortFilenameBase']+'+'+visibleBand+'.dng')
-			img = openImageFile(unflatPath)
-			for flatFile in listdir(instructions['basepath']+calibration['Calibration-Color']['flats']):
-				if visibleBand in flatFile:
-					flatPath = instructions['basepath']+calibration['Calibration-Color']['flats']+flatFile
-			flat = openImageFile(flatPath)
-			img = flatten(img,flat)
-			img = rotate(img)
-			io.imsave(cacheFilePath,img,check_contrast=False)
+
+		if needsFlattening(instructions['basepath']+sequenceName+'/'+calibration['Calibration-Color']['imagesets'][0]+'/'+sequenceName+'+'+visibleBand+'.tif'):
+			logger.info("Flattening %s"%(instructions['basepath']+sequenceName+'_'+visibleBand+'.tif'))
+			cacheFilePath = instructions['settings']['cachepath']+'flattened/'+sequenceName+'_'+visibleBand+'.tif'
+			if exists(cacheFilePath): 
+				img = io.imread(cacheFilePath)
+			else: 
+				for filename in listdir(instructions['basepath']+sequenceName+'/'+calibration['Calibration-Color']['imagesets'][0]):
+					if visibleBand in filename:
+						unflatPath = instructions['basepath']+sequenceName+'/'+calibration['Calibration-Color']['imagesets'][0]+'/'+filename
+				img = openImageFile(unflatPath)
+				for flatFile in listdir(instructions['basepath']+calibration['Calibration-Color']['flats']):
+					if visibleBand in flatFile:
+						flatPath = instructions['basepath']+calibration['Calibration-Color']['flats']+flatFile
+				flat = openImageFile(flatPath)
+				img = flatten(img,flat)
+				img = rotate(img)
+				io.imsave(cacheFilePath,img,check_contrast=False)
+		else:
+			logger.info("Opening already flattened image file %s"%(instructions['basepath']+sequenceName+'_'+visibleBand+'.tif'))
+			img = openImageFile(instructions['basepath']+sequenceName+'/'+calibration['Calibration-Color']['imagesets'][0]+'/'+sequenceName+'+'+visibleBand+'.tif')
+
 		whiteSample = img[
 			calibration['Calibration-Color']['white']['y']:calibration['Calibration-Color']['white']['y']+calibration['Calibration-Color']['white']['h'],
 			calibration['Calibration-Color']['white']['x']:calibration['Calibration-Color']['white']['x']+calibration['Calibration-Color']['white']['w'] ]
@@ -800,31 +810,39 @@ def processColor(msi2xyzFile):
 			sequenceName = instructions['sequenceShort']
 		else:
 			sequenceName = instructions['target']
-		cacheFilePath = instructions['settings']['cachepath']+'flattened/'+sequenceName+'+'+visibleBand+'.tif'
-		if exists(cacheFilePath): 
-			img = io.imread(cacheFilePath)
-		else: 
-			if 'Unflattened' in instructions['imagesets']:
-				unflatPath = instructions['basepath']+instructions['target']+'/Unflattened/'
-			elif 'Raw' in instructions['imagesets']:
-				unflatPath = instructions['basepath']+instructions['target']+'/Raw/'
-			elif 'Reflectance' in instructions['imagesets']:
-				unflatPath = instructions['basepath']+instructions['target']+'/Reflectance/'
-			else:
-				exit("Need more info to know what image data to use for color calibration")
-			for filename in listdir(unflatPath):
-				if visibleBand in filename:
-					unflatFile = unflatPath+filename
-			img = openImageFile(unflatFile)
-			for filename in listdir(instructions['basepath']+instructions['flats']): 
-				if visibleBand in filename:
-					flatFile = instructions['basepath']+instructions['flats']+filename
-			flat = openImageFile(flatFile)
-			img = flatten(img,flat)
-			if not 'rotation' in instructions:
-			 	instructions['rotation'] = 0
-			img = rotate(img)
-			io.imsave(cacheFilePath,img,check_contrast=False)
+		if 'shortFilenameBase' in instructions:
+			filenameBase = instructions['shortFilenameBase']
+		else:
+			filenameBase = sequenceName
+		if needsFlattening(instructions['basepath']+sequenceName+'/'+instructions['imagesets'][0]+'/'+filenameBase+'+'+visibleBand+'.tif'):
+			cacheFilePath = instructions['settings']['cachepath']+'flattened/'+sequenceName+'+'+visibleBand+'.tif'
+			if exists(cacheFilePath): 
+				img = io.imread(cacheFilePath)
+			else: 
+				if 'Unflattened' in instructions['imagesets']:
+					unflatPath = instructions['basepath']+instructions['target']+'/Unflattened/'
+				elif 'Raw' in instructions['imagesets']:
+					unflatPath = instructions['basepath']+instructions['target']+'/Raw/'
+				elif 'Reflectance' in instructions['imagesets']:
+					unflatPath = instructions['basepath']+instructions['target']+'/Reflectance/'
+				else:
+					exit("Need more info to know what image data to use for color calibration")
+				for filename in listdir(unflatPath):
+					if visibleBand in filename:
+						unflatFile = unflatPath+filename
+				img = openImageFile(unflatFile)
+				for filename in listdir(instructions['basepath']+instructions['flats']): 
+					if visibleBand in filename:
+						flatFile = instructions['basepath']+instructions['flats']+filename
+				flat = openImageFile(flatFile)
+				img = flatten(img,flat)
+				if not 'rotation' in instructions:
+					instructions['rotation'] = 0
+				img = rotate(img)
+				io.imsave(cacheFilePath,img,check_contrast=False)
+		else:
+			img = openImageFile(instructions['basepath']+sequenceName+'/'+instructions['imagesets'][0]+'/'+filenameBase+'+'+visibleBand+'.tif')
+
 		whiteSample = img[
 			instructions['white']['y']:instructions['white']['y']+instructions['white']['h'],
 			instructions['white']['x']:instructions['white']['x']+instructions['white']['w']
