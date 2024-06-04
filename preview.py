@@ -6,24 +6,26 @@ import numpy
 import yaml 
 import multiprocessing
 
-basePath = '/storage/JubPalProj/Lazarus/Triv_Dante/'
 basePath = '/storage/JubPalProj/Lazarus/Triv_PsalterArmorial/'
 basePath = '/storage/JubPalProj/Videntes/BritishLibrary_AddMS10049/'
 basePath = '/storage/JubPalProj/Videntes/Unknown_MappaMundi/'
 basePath = '/storage/JubPalProj/Ambrosiana2023/Ambrosiana_F130sup/'
 basePath = '/storage/JubPalProj/Hereford/Hereford_Gospels/'
+basePath = '/mmfs1/home/thanneke/projects/Triv_Dante/'
+basePath = '/storage/JubPalProj/Lazarus/Triv_Dante/'
 print("Using basePath",basePath)
 flatPath = '/storage/JubPalProj/Ambrosiana2023/Calibration/Flats_D20230615-T151702/'
 flatPath = '/storage/JubPalProj/Hereford/Calibration/Flat20231011/'
-flatPath = 'not applicable'
 flatPath = 'Derive from YAML file'
+flatPath = 'not applicable'
+print("Using flatPath",flatPath)
 yamlPath = '/storage/JubPalProj/Hereford/Hereford_Gospels/Hereford_Gospels.yaml'
-flatIndexStart = -7 # MegaVision
-flatIndexEnd = -4 # MegaVision
+yamlPath = False # just look in basepath for directories
 flatIndexStart = -10 # Hereford, Misha
 flatIndexEnd = -7 # Hereford, Misha
+flatIndexStart = -7 # MegaVision
+flatIndexEnd = -4 # MegaVision
 rotation = 0
-print("Using flatPath",flatPath)
 verbose = False
 
 def opentiffile(tiffile):
@@ -86,12 +88,13 @@ def previewJpeg(infile,outfile):
 	io.imsave(outfile,img,check_contrast=False)
 
 # Make a list of directories in the basepath
-if path.exists(yamlPath): 
+if yamlPath and path.exists(yamlPath): 
 	with open(yamlPath,'r') as unparsedyaml:
 			metadata = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
 	sequences = list(metadata.keys())
 	sequences.remove('default')
 else:
+	metadata = False
 	sequences = []
 	with scandir(basePath) as it:
 		for entry in it:
