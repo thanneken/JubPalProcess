@@ -286,13 +286,14 @@ def readProjectDefaults():
 		instructions['roi'] = instructions['rois'][list(instructions['rois'].keys())[0]]
 		instructions['noisesample'] = instructions['noisesamples'][list(instructions['noisesamples'].keys())[0]] 
 		del instructions['rois'], instructions['noisesamples']
-	else:
-		del instructions['imagesets'],instructions['options']['sigmas'],instructions['options']['skipuvbp']
-		del instructions['options']['n_components'],instructions['noisesamples'],instructions['rois'],instructions['output']['histograms']
 
 def nextNeededTarget(targets):
-	matches = (f for f in targets if exists(instructions['basepath']+f) and not exists(instructions['basepath']+f+'/Transform'))
-	return next(matches,None)
+	if any(x in instructions['options']['methods'] for x in ['kpca','pca','mnf','fica']):
+		matches = (f for f in targets if exists(instructions['basepath']+f) and not exists(instructions['basepath']+f+'/Transform'))
+		return next(matches,None)
+	elif 'color' in instructions['options']['methods']:
+		matches = (f for f in targets if exists(instructions['basepath']+f) and not exists(instructions['basepath']+f+'/Color'))
+		return next(matches,None)
 
 def cacheEquivalent(inPath,derivative):
 	if 'sigma' in derivative:

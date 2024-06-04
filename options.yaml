@@ -13,10 +13,11 @@ options:
     - False
     - True
   methods: 
+    - color
+  skipmethods: 
     - fica
     - mnf
     - pca
-    - color
   n_components: # fica always runs at max so this selection applies to pca and mnf
     - 10
     - 5
