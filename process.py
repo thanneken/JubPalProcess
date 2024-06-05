@@ -183,8 +183,7 @@ def askUser():
 	if any(x in instructions['options']['methods'] for x in ['kpca','pca','mnf','fica']):
 		askUserTransformationOptions()
 	else:
-		logger.info('Cleaning up instructions for the sake the log')
-		del instructions['options']['n_components'],instructions['noisesamples'],instructions['rois'],instructions['output']['histograms']
+		logger.info('Cleaning up instructions for the sake the log') #del instructions['options']['n_components'],instructions['noisesamples'],instructions['rois'],instructions['output']['histograms']
 	if len(instructions['output']['fileformats']) > 1:
 		questions = [ inquirer.Checkbox('fileformats','Select file format(s) to output',choices=instructions['output']['fileformats']) ]
 		fileformats = []
@@ -759,8 +758,8 @@ def createMsi2Xyz():
 		else:
 			sequenceName = calibration['Calibration-Color']['checkerCaptureDirectory']
 
-		if needsFlattening(instructions['basepath']+sequenceName+'/'+calibration['Calibration-Color']['imagesets'][0]+'/'+sequenceName+'+'+visibleBand+'.tif'):
-			logger.info("Flattening %s"%(instructions['basepath']+sequenceName+'_'+visibleBand+'.tif'))
+		if needsFlattening(instructions['basepath']+sequenceName+'/'+calibration['Calibration-Color']['imagesets'][0]+'/'+sequenceName+'+'+visibleBand+'.dng'):
+			logger.info("Flattening %s"%(sequenceName+'_'+visibleBand+'.dng'))
 			cacheFilePath = instructions['settings']['cachepath']+'flattened/'+sequenceName+'_'+visibleBand+'.tif'
 			if exists(cacheFilePath): 
 				img = io.imread(cacheFilePath)
@@ -815,8 +814,8 @@ def processColor(msi2xyzFile):
 			filenameBase = instructions['shortFilenameBase']
 		else:
 			filenameBase = sequenceName
-		if needsFlattening(instructions['basepath']+sequenceName+'/'+instructions['imagesets'][0]+'/'+filenameBase+'+'+visibleBand+'.tif'):
-			cacheFilePath = instructions['settings']['cachepath']+'flattened/'+sequenceName+'+'+visibleBand+'.tif'
+		if needsFlattening(instructions['basepath']+sequenceName+'/'+instructions['imagesets'][0]+'/'+filenameBase+'+'+visibleBand+'.dng'):
+			cacheFilePath = instructions['settings']['cachepath']+'flattened/'+sequenceName+'+'+visibleBand+'.dng'
 			if exists(cacheFilePath): 
 				img = io.imread(cacheFilePath)
 			else: 
@@ -832,8 +831,9 @@ def processColor(msi2xyzFile):
 					if visibleBand in filename:
 						unflatFile = unflatPath+filename
 				img = openImageFile(unflatFile)
+				captureIndex = unflatFile[-8:-3]
 				for filename in listdir(instructions['basepath']+instructions['flats']): 
-					if visibleBand in filename:
+					if captureIndex in filename:
 						flatFile = instructions['basepath']+instructions['flats']+filename
 				flat = openImageFile(flatFile)
 				img = flatten(img,flat)

@@ -18,6 +18,7 @@ flatPath = '/storage/JubPalProj/Ambrosiana2023/Calibration/Flats_D20230615-T1517
 flatPath = '/storage/JubPalProj/Hereford/Calibration/Flat20231011/'
 flatPath = 'Derive from YAML file'
 flatPath = 'not applicable'
+flatPath = '/storage/JubPalProj/Lazarus/Calibration/Flats_D20240604-T121747/'
 print("Using flatPath",flatPath)
 yamlPath = '/storage/JubPalProj/Hereford/Hereford_Gospels/Hereford_Gospels.yaml'
 yamlPath = False # just look in basepath for directories
@@ -42,9 +43,9 @@ def flatten(img,imageIndex):
 		flat = openrawfile(flatFile) 
 	else:
 		flat = opentiffile(flatFile)
-	print("Blurring unflat with 3x3 median")
-	img = filters.median(img) # default is 3x3
-	if metadata['default']['blurFlat'] > 0: 
+	if False and metadata['default']['blurFlat'] > 0: 
+		print("Blurring unflat with 3x3 median")
+		img = filters.median(img) # default is 3x3
 		print("Blurring flat with sigma "+str(metadata['default']['blurFlat']))
 		flat = filters.gaussian(flat,sigma=metadata['default']['blurFlat'])
 	return numpy.divide(img*numpy.average(flat),flat,out=numpy.zeros_like(img*numpy.average(flat)),where=flat!=0)
