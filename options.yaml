@@ -14,10 +14,10 @@ options:
     - True
   methods: 
     - color
-  skipmethods: 
     - fica
     - mnf
     - pca
+  skipmethods: 
   n_components: # fica always runs at max so this selection applies to pca and mnf
     - 10
     - 5
@@ -41,8 +41,8 @@ settings:
   color:
     illuminant: D65
 basepaths: 
-  - /storage/JubPalProj/Lazarus/Triv_Dante/
   - /storage/JubPalProj/AmbrosianaArchive/Ambrosiana_C73inf/
+  - /storage/JubPalProj/Lazarus/Triv_Dante/
   - /storage/JubPalProj/Hereford/Hereford_Gospels/
   - /storage/JubPalProj/Ambrosiana2023/Ambrosiana_F130sup/
   - /storage/JubPalProj/Videntes/BritishLibrary_AddMS10049/

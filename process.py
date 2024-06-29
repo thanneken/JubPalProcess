@@ -554,8 +554,8 @@ def processHistogramsThread(histogramTaskQueue,histogramDoneQueue):
 			elif histogram == 'rescale':
 				img = exposure.rescale_intensity(img)
 			elif histogram == 'adaptive':
-				img = exposure.rescale_intensity(img)
-				img = exposure.equalize_adapthist(img,clip_limit=0.03)
+				img = exposure.rescale_intensity(img,out_range=(0,1))
+				img = exposure.equalize_adapthist(img,kernel_size=128,clip_limit=1)
 			elif histogram == 'none':
 				logger.warning('No histogram adjustment is a bad idea')
 			else:
