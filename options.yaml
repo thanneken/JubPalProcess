@@ -5,7 +5,7 @@ options:
     - True
     - False
   sigmas: 
-    # - 1000
+    - 1000
     - 500
     - 50
     - 0
@@ -32,7 +32,7 @@ output:
     - tif
     #- png
 settings:
-  fica_max_iter: 100 # default is 100, 100000 took days, 10000 took about 4 hours, 1000 reasonable once past testing
+  fica_max_iter: 1000 # default is 100, 100000 took days, 10000 took about 4 hours, 1000 reasonable once past testing
   fica_tol: 0.0001 # default is 0.0001, 0.00001 took days, .001 fails with error, 0.01 still took a while and sometimes fails at 10k iterations
   cachepath: /storage/JubPalProj/cache/
   logfile: /home/thanneken/logs/jubpalprocess.log
