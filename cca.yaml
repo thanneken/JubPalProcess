@@ -1,0 +1,11 @@
+basepath : '/storage/JubPalProj/AmbrosianaArchive/Ambrosiana_C73inf/'
+target : 'Ambrosiana_C73inf_058' 
+includeObservations : 
+  - 'Ambrosiana_C73inf_055' 
+  - 'Ambrosiana_C73inf_054' 
+inputDirectories : 
+  - 'Captures-Fluorescence-NoGamma' 
+  - 'Captures-Narrowband-NoGamma' 
+  - 'Captures-Transmissive-NoGamma'
+loglevel : 'INFO'
+
