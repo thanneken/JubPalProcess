@@ -24,6 +24,6 @@ for infilepath in sys.argv[1:]:
         if path.exists(outfilepath):
             print("Overwriting %s"%(outfilepath))
         else:
-            print("Saving %s"%s(outfilepath))
+            print("Saving %s"%(outfilepath))
         io.imsave(outfilepath,img[:,:,channel],check_contrast=False)
 
