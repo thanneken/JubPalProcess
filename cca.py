@@ -5,19 +5,45 @@ from os import listdir, makedirs
 from os.path import exists
 from skimage import io, img_as_ubyte, img_as_uint, exposure
 from sklearn.cross_decomposition import CCA
+from sys import argv
+import yaml 
 
-basepath = '/storage/JubPalProj/AmbrosianaArchive/Ambrosiana_C73inf/'
-target = 'Ambrosiana_C73inf_055' 
-includeObservations = [ 
-	'Ambrosiana_C73inf_054'
-]
-ignore = [
-	'Ambrosiana_C73inf_053' 
-	,
-	'Ambrosiana_C73inf_049' 
-]
-inputDirectories = [ 'Captures-Fluorescence-NoGamma' , 'Captures-Narrowband-NoGamma' , 'Captures-Transmissive-NoGamma' ]
-loglevel = 'INFO'
+def findOptionsFile():
+	for argument in argv:
+		if 'cca.yaml' in argument:
+			if exists(argument):
+				print('Found cca.yaml as specified on the command line')
+				return argument
+			else:
+				print('Found cca.yaml in command-line arguments, but the file does not exist')
+				continue
+	if exists('cca.yaml'):
+		print('Found cca.yaml in present working directory')
+		return 'cca.yaml'
+	elif exists('git/JubPalProcess/cca.yaml'):
+		print('Found cca.yaml in git/JubPalProcess/')
+		return 'git/JubPalProcess/cca.yaml'
+	else:
+	 	exit('Cannot continue without specifying path to options.yaml')
+def readStack(target):
+	images = []
+	for directory in inputDirectories:
+		logger.info("Reading %s/%s"%(target,directory))
+		for file in listdir(basepath+target+'/'+directory+'/'):
+			img = io.imread(basepath+target+'/'+directory+'/'+file)
+			images.append(img)
+	img = np.stack(images)
+	return img
+
+optionsfile = findOptionsFile()
+with open(optionsfile,'r') as unparsedyaml:
+	instructions = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
+
+basepath = instructions['basepath']
+target = instructions['target']
+includeObservations = instructions['includeObservations']
+inputDirectories = instructions['inputDirectories']
+loglevel = instructions['loglevel']
 
 if not exists(basepath+target+'/CCA/'): 
 	print('Creating %s/CCA/ Directory'%(target))
@@ -28,16 +54,6 @@ logLevelObject = eval('logging.'+loglevel)
 logging.basicConfig(filename=logfile,format='%(asctime)s %(levelname)s %(message)s',datefmt='%Y%m%d %H:%M:%S',level=logLevelObject) 
 print("Follow logfile %s"%(logfile))
 logger.info(" ~= Starting New Run =~")
-
-def readStack(target):
-	images = []
-	for directory in inputDirectories:
-		logger.info("Reading %s/%s"%(target,directory))
-		for file in listdir(basepath+target+'/'+directory+'/'):
-			img = io.imread(basepath+target+'/'+directory+'/'+file)
-			images.append(img)
-	img = np.stack(images)
-	return img
 
 training = []
 labels = []
