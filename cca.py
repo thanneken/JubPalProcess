@@ -90,9 +90,8 @@ if includeObservations:
 		logger.info("Measurements stack is %s channels deep, %s pixels high, and %s pixels wide"%(img.shape))
 		logger.info("Assembling training set")
 		addTraining(img,observations)
-
-logger.info("Labels has shape %s and dtype %s"%(labels.shape,labels.dtype))
-logger.info("Unique labels based on previous targets are %s"%(np.unique(labels,axis=0)))
+	logger.info("Labels has shape %s and dtype %s"%(labels.shape,labels.dtype))
+	logger.info("Unique labels based on previous targets are %s"%(np.unique(labels,axis=0)))
 logger.info("Loading stack of measurements for target %s"%(target))
 img = readStack(target)
 logger.info("Measurements stack is %s channels deep, %s pixels high, and %s pixels wide"%(img.shape))
