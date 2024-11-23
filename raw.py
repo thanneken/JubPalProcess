@@ -16,6 +16,7 @@ else:
 for infilepath in sys.argv[1:]:
     print("Reading %s"%(infilepath))
     img = rawpy.imread(infilepath)
+    io.imsave(infilepath[:-4]+'-veryraw.tif',img.raw_image.copy(),check_contrast=False)
     img = img.postprocess(half_size=half_size,no_auto_bright=no_auto_bright,gamma=gamma,no_auto_scale=no_auto_scale,output_bps=output_bps)
     height,width,channels = img.shape
     print("Processed image is %s pixels high, %s pixels wide, and %s channels deep with each pixel described with %s data"%(height,width,channels,img.dtype))
