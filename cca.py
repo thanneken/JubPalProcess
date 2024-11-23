@@ -7,6 +7,8 @@ from skimage import io, img_as_ubyte, img_as_uint, exposure
 from sklearn.cross_decomposition import CCA
 from sys import argv
 import yaml 
+from multiprocessing import Process, Queue, current_process 
+from psutil import cpu_count
 
 def findOptionsFile():
 	for argument in argv:
@@ -34,7 +36,26 @@ def readStack(target):
 			images.append(img)
 	img = np.stack(images)
 	return img
+def addTraining(img,observations):
+	global training
+	global labels
+	ys, xs = np.nonzero(observations[:,:,3])
+	newTraining = np.zeros((len(xs),img.shape[0]),dtype=np.uint16)
+	newLabels = np.zeros((len(xs),3),dtype=np.uint8) 
+	for i in range(len(xs)):
+		newTraining[i] = img[:,ys[i],xs[i]]
+		newLabels[i] = observations[ys[i],xs[i],:-1]
+	if np.any(training):
+		training = np.append(training,newTraining,axis=0)
+	else:
+		training = newTraining
+	if np.any(labels):
+		labels = np.append(labels,newLabels,axis=0)
+	else:
+		labels = newLabels
 
+training = None
+labels = None
 optionsfile = findOptionsFile()
 with open(optionsfile,'r') as unparsedyaml:
 	instructions = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
@@ -55,28 +76,22 @@ logging.basicConfig(filename=logfile,format='%(asctime)s %(levelname)s %(message
 print("Follow logfile %s"%(logfile))
 logger.info(" ~= Starting New Run =~")
 
-training = []
-labels = []
-for include in includeObservations:
-	observations = basepath+include+'/CCA/'+include+'_Observations.png'
-	logger.info("Reading observations file %s"%(observations))
-	observations = io.imread(observations)
-	height,width,channels = observations.shape
-	logger.info("Observations image is %s pixels wide, %s pixels high, and %s channels deep"%(width,height,channels))
-	if not channels == 4:
-		logger.warning("Expecting a four-channel observations image")
-	logger.info("Loading stack of measurements for %s"%(include))
-	img = readStack(include)
-	logger.info("Measurements stack is %s channels deep, %s pixels high, and %s pixels wide"%(img.shape))
-	logger.info("Assembling training set may take a few minutes (not currently multithreaded)")
-	for y in range(height):
-		if y%1000 == 0:
-			logger.info("At line %s"%(y))
-		for x in range(width):
-			if observations[y,x,3] > 0: # expecting 255 or 1 for opaque pixels, 0 for transparent pixels
-				training.append(img[:,y,x]) 
-				labels.append(observations[y,x,:-1])
-
+if includeObservations:
+	for include in includeObservations:
+		observations = basepath+include+'/CCA/'+include+'_Observations.png'
+		logger.info("Reading observations file %s"%(observations))
+		observations = io.imread(observations)
+		height,width,channels = observations.shape
+		logger.info("Observations image is %s pixels wide, %s pixels high, and %s channels deep"%(width,height,channels))
+		if not channels == 4:
+			logger.warning("Expecting a four-channel observations image")
+		logger.info("Loading stack of measurements for %s"%(include))
+		img = readStack(include)
+		logger.info("Measurements stack is %s channels deep, %s pixels high, and %s pixels wide"%(img.shape))
+		logger.info("Assembling training set")
+		addTraining(img,observations)
+	logger.info("Labels has shape %s and dtype %s"%(labels.shape,labels.dtype))
+	logger.info("Unique labels based on previous targets are %s"%(np.unique(labels,axis=0)))
 logger.info("Loading stack of measurements for target %s"%(target))
 img = readStack(target)
 logger.info("Measurements stack is %s channels deep, %s pixels high, and %s pixels wide"%(img.shape))
@@ -88,19 +103,16 @@ if exists(basepath+target+'/CCA/'+target+'_Observations.png'):
 	logger.info("Observations image is %s pixels wide, %s pixels high, and %s channels deep"%(width,height,channels))
 	if not channels == 4:
 		logger.warning("Expecting a four-channel observations image")
-	logger.info("Assembling training set may take a few minutes")
-	for y in range(height):
-		if y%1000 == 0:
-			logger.info("At line %s"%(y))
-		for x in range(width):
-			if observations[y,x,3] > 0: 
-				training.append(img[:,y,x]) 
-				labels.append(observations[y,x,:-1])
+	logger.info("Assembling training set from target")
+	addTraining(img,observations)
 
+logger.info("Labels has shape %s and dtype %s"%(labels.shape,labels.dtype))
 logger.info("Unique labels are %s"%(np.unique(labels,axis=0)))
-n_components = len(np.unique(labels,axis=0))
-if n_components != 3:
-	logger.warning('Are you sure you wish to decompose to %s components?'%(n_components))
+
+if len(np.unique(labels,axis=0)) > 2:
+	n_components = 3
+else:
+	n_components = len(np.unique(labels,axis=0))
 
 logger.info("Fitting training samples shape %s to labels shape %s with %s components"%(len(training),len(labels),n_components))
 logger.debug("I'm not sure n_components is what I think it is. On Ambrosiana_C73inf_053 had the same result when n_components was 2 and 3")
