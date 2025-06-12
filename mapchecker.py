@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from skimage import io, img_as_ubyte, exposure
+from skimage import io, img_as_ubyte, exposure, color
 import cv2
 import numpy as np
 import yaml
@@ -57,6 +57,8 @@ if __name__ == "__main__":
 	"""
 	if args.color:
 		img = io.imread(args.color)
+		if 'Color_LAB' in args.color:
+			img = color.lab2rgb(img)
 	elif args.red and args.green and args.blue:
 		redimg = io.imread(args.red)
 		greenimg = io.imread(args.green)

@@ -1,0 +1,30 @@
+# color.yaml should be placed in the directory that contains the imageset
+imageset: 'Flattened' # calibratecolor.py and humancolor.py assume already flattened, rotated, etc.
+basefile: '*' # or to disambiguate something like 'ColorChecker-QHY600-Milvus50-F11-gain26_15' 
+visibleCaptures:
+  - 'white6500-WrattenBlue98'
+  - 'white6500-WrattenGreen61'
+  - 'white6500-WrattenRed25'
+  - 'white2800-WrattenBlue98'
+  - 'white2800-WrattenGreen61'
+  - 'white2800-WrattenRed25'
+  - 'blue475-NoFilter'
+  - 'blue475-WrattenBlue98'
+  - 'blue475-WrattenGreen61'
+  - 'uv405-WrattenBlue98'
+  - 'uv405-NoFilter'
+ignore: # experiment with including and ignoring captures
+checker: 
+  brand: 'Calibrite Colorchecker Passport'
+  serial: '2024'
+  owner: 'Todd Hanneken'
+  data: 'https://palimpsest.stmarytx.edu/rodeo/2025/data/'
+  note: 'Using online values prior to spectrophotometer measurements'
+  automap: # or specify x,y,w,h for each patch
+    r: 'white6500-WrattenRed25' # could also be c: <3-band color file>
+    g: 'white6500-WrattenGreen61'
+    b: 'white6500-WrattenBlue98'
+  xyzvalues:
+    filename: 'checkerreference.yaml' # could also be in this file
+    reference: 'checkerReferenceBabel'
+msi2xyz: 'msi2xyz.txt' # must be specified what it should be even before it actually exists
