@@ -5,7 +5,6 @@ import yaml
 import argparse
 import glob
 import os
-from mapchecker import detectMacbeth
 from calibratecolor import getArguments, measureCheckerValues, XyzDict2array
 
 """
