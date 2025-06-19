@@ -37,7 +37,8 @@ def measureCheckerValues(img,checkerMap):
 				exit()
 		else: # assuming only called from measurecolor.py or measuredeltae.py
 			tempimg = color.lab2rgb(img)
-		tempimg = exposure.adjust_gamma(tempimg,1/2.2) # is more gamma always better even if already accurate?
+		if False: # is more gamma always better even if already accurate?
+			tempimg = exposure.adjust_gamma(tempimg,1/2.2)
 		tempimg = exposure.rescale_intensity(tempimg)
 		tempimg = img_as_ubyte(tempimg)
 		checkerMap = detectMacbeth(tempimg)

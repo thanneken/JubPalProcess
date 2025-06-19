@@ -10,12 +10,14 @@ verbose = False
 expectedwh = 150
 
 def detectMacbeth(img):
+	img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 	detector = cv2.mcc.CCheckerDetector.create()
 	detector.process(img,chartType=cv2.mcc.MCC24)
 	checker = detector.getBestColorChecker() # when multiple checkers are in frame will be necessary to specify a mask or edit the temporary color image
 	patchcoordinates = checker.getColorCharts()
 	checkerMap = {"note":"Upper left coordinates calculated by OpenCV Macbeth Color Checker Module. Assuming width and height of %s for 600 ppi"%(expectedwh)}
-	patchcoordinates = np.flip(patchcoordinates,0) 
+	if False:
+		patchcoordinates = np.flip(patchcoordinates,0)
 	for patch in range(24):
 		x,y = np.min(patchcoordinates[patch*4:patch*4+4],axis=0)
 		x = int(x)
@@ -32,6 +34,7 @@ def detectMacbeth(img):
 		w = h = expectedwh
 		checkerMap[patch+1] = {'x':x,'y':y,'w':w,'h':h}
 	if verbose:
+		img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 		drawer = cv2.mcc.CCheckerDraw.create(checker)
 		drawn = drawer.draw(img)
 		plt.imshow(drawn)
