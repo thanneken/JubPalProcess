@@ -7,15 +7,17 @@ import argparse
 import matplotlib.pyplot as plt
 
 verbose = False
-expectedwh = 150
+expectedppi = 600
+expectedppi = 150 # includes 300 ppi with bayer mosaic
 
 def detectMacbeth(img):
+	expectedwh = int(expectedppi / 4)
 	img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 	detector = cv2.mcc.CCheckerDetector.create()
 	detector.process(img,chartType=cv2.mcc.MCC24)
 	checker = detector.getBestColorChecker() # when multiple checkers are in frame will be necessary to specify a mask or edit the temporary color image
 	patchcoordinates = checker.getColorCharts()
-	checkerMap = {"note":"Upper left coordinates calculated by OpenCV Macbeth Color Checker Module. Assuming width and height of %s for 600 ppi"%(expectedwh)}
+	checkerMap = {"note":"Upper left coordinates calculated by OpenCV Macbeth Color Checker Module. Assuming width and height of %s for %s ppi"%(expectedwh,expectedppi)}
 	if False:
 		patchcoordinates = np.flip(patchcoordinates,0)
 	for patch in range(24):
