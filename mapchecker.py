@@ -7,10 +7,17 @@ import argparse
 import matplotlib.pyplot as plt
 
 verbose = False
-expectedppi = 600
-expectedppi = 150 # includes 300 ppi with bayer mosaic
 
 def detectMacbeth(img):
+	width = img.shape[1]
+	if width > 10000:
+		expectedppi = 1200
+	elif width > 6500:
+		expectedppi = 600
+	elif width > 3000:
+		expectedppi = 300
+	else:
+		expectedppi = 150
 	expectedwh = int(expectedppi / 4)
 	img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 	detector = cv2.mcc.CCheckerDetector.create()
