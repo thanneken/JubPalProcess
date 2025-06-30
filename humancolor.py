@@ -27,6 +27,9 @@ if __name__ == "__main__":
 		filelist = glob.glob(os.path.join(colordata['imageset'],colordata['basefile']+'-'+visibleCapture+'*.tif'))
 		if len(filelist) > 1:
 			print(f"Warning: found more than one file for {visibleCapture}, taking the first, which is {filelist[0]}") if verbose else None
+		if len(filelist) < 1:
+			print(f"Did not find files matching glob {os.path.join(colordata['imageset'],colordata['basefile']+'-'+visibleCapture+'*.tif')}")
+			exit()
 		print(f"Reading {filelist[0]}") if verbose else None
 		img = io.imread(filelist[0])
 		visibleCaptures.append(img)
@@ -47,15 +50,19 @@ if __name__ == "__main__":
 	srgb = img_as_ubyte(srgb)
 	if not os.path.exists('Color'):
 		os.makedirs('Color',mode=0o755)
-	srgbFilePath = os.path.join('Color',colordata['basefile']+'-Color_sRGB.tif')
+	if 'suffix' in colordata:
+	 	colordata['suffix'] = '-'+colordata['suffix']
+	else:
+	 colordata['suffix'] = ''
+	srgbFilePath = os.path.join('Color',colordata['basefile']+'-Color_sRGB'+colordata['suffix']+'.tif')
 	print(f"Saving sRGB {srgbFilePath}") if verbose else None
 	io.imsave(srgbFilePath,srgb,check_contrast=False) 
-	jpgFilePath = os.path.join('Color',colordata['basefile']+'-Color_sRGB.jpg')
+	jpgFilePath = os.path.join('Color',colordata['basefile']+'-Color_sRGB'+colordata['suffix']+'.jpg')
 	print(f"Saving JPG {jpgFilePath}") if verbose else None
 	io.imsave(jpgFilePath,srgb,check_contrast=False) 
 	lab = color.xyz2lab(calibratedColor)
 	lab = lab.astype('int8')
-	labFilePath = os.path.join('Color',colordata['basefile']+'-Color_LAB.tif')
+	labFilePath = os.path.join('Color',colordata['basefile']+'-Color_LAB'+colordata['suffix']+'.tif')
 	print(f"Saving LAB {labFilePath}") if verbose else None
 	io.imsave(labFilePath,lab,check_contrast=False)
 

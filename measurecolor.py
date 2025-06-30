@@ -56,7 +56,7 @@ if __name__ == "__main__":
 	for labfile in glob.glob(os.path.join('Color','*Color_LAB*')):
 		print(f"{labfile=}")
 		img = io.imread(labfile)
-		showDetail(img) # print(f"{img.dtype=} {img.shape=} L range {np.min(img[:,:,0])} - {np.max(img[:,:,0])}, A range {np.min(img[:,:,1])} - {np.max(img[:,:,1])}, B range {np.min(img[:,:,2])} - {np.max(img[:,:,2])}")
+		showDetail(img) if verbose else None
 		checkerValues = measureCheckerValues(img,colordata['checker']) 
 		checkerValues = np.array(checkerValues)
 		if False:
@@ -65,7 +65,7 @@ if __name__ == "__main__":
 			deltaE = color.deltaE_ciede2000(value,checkerReference[number])
 			number = str(number+1)
 			deltaE = str(np.round(deltaE,2))
-			print("Patch",number,"has Euclidian Distance of",deltaE)
+			print("Patch",number,"has Euclidian Distance of",deltaE) if verbose else None
 		deltaE = color.deltaE_ciede2000(checkerValues,checkerReference)
 		print("Average Euclidian Distance is",np.round(np.mean(deltaE),3))
 

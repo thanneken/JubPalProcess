@@ -23,7 +23,7 @@ def detectMacbeth(img):
 	detector = cv2.mcc.CCheckerDetector.create()
 	detector.process(img,chartType=cv2.mcc.MCC24)
 	checker = detector.getBestColorChecker() # when multiple checkers are in frame will be necessary to specify a mask or edit the temporary color image
-	patchcoordinates = checker.getColorCharts()
+	patchcoordinates = checker.getColorCharts() # Q15 fails here
 	checkerMap = {"note":"Upper left coordinates calculated by OpenCV Macbeth Color Checker Module. Assuming width and height of %s for %s ppi"%(expectedwh,expectedppi)}
 	if False:
 		patchcoordinates = np.flip(patchcoordinates,0)
@@ -42,6 +42,8 @@ def detectMacbeth(img):
 				print(f"coordinates are\n{patchcoordinates[patch*4:patch*4+4]}")
 		w = h = expectedwh
 		checkerMap[patch+1] = {'x':x,'y':y,'w':w,'h':h}
+		if verbose:
+			print(f"{checkerMap[patch+1]=}")
 	if verbose:
 		img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 		drawer = cv2.mcc.CCheckerDraw.create(checker)

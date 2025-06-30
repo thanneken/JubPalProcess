@@ -72,6 +72,9 @@ if __name__ == "__main__":
 		filelist = glob.glob(os.path.join(colordata['imageset'],colordata['basefile']+'-'+visibleBand+'*.tif'))
 		if len(filelist) > 1:
 			print(f"Warning: found more than one file for {visibleBand}, taking the first, which is {filelist[0]}") if verbose else None
+		elif len(filelist) < 1:
+			print(f"Failed to find files matching {os.path.join(colordata['imageset'],colordata['basefile']+'-'+visibleBand+'*.tif')}")
+			exit()
 		print(f"Reading {filelist[0]}") if verbose else None
 		img = io.imread(filelist[0])
 		capturedChecker.append(img)
