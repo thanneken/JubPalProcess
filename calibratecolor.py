@@ -9,7 +9,6 @@ from mapchecker import detectMacbeth
 
 """
 calibratecolor.py takes color.yaml file, outputs matrix file
-presently wants to be run in same directory as color.yaml, can be fixed
 """
 
 verbose = False
@@ -25,12 +24,12 @@ def measureCheckerValues(img,checkerMap):
 		if __name__ == "__main__":
 			if 'c' in checkerMap['automap']:
 				print("Reading rgb file to create automap") if verbose else None
-				tempimg = io.imread(glob.glob(os.path.join(colordata['imageset'],colordata['basefile']+'-'+checkerMap['automap']['c']+'*.tif'))[0])
+				tempimg = io.imread(glob.glob(os.path.join(workingdir,colordata['imageset'],colordata['basefile']+'-'+checkerMap['automap']['c']+'*.tif'))[0])
 			elif 'b' in checkerMap['automap']:
 				print("Reading r, g, and b, files to create automap") if verbose else None
-				redimg = io.imread(glob.glob(os.path.join(colordata['imageset'],colordata['basefile']+'-'+checkerMap['automap']['r']+'*.tif'))[0])
-				greenimg = io.imread(glob.glob(os.path.join(colordata['imageset'],colordata['basefile']+'-'+checkerMap['automap']['g']+'*.tif'))[0])
-				blueimg = io.imread(glob.glob(os.path.join(colordata['imageset'],colordata['basefile']+'-'+checkerMap['automap']['b']+'*.tif'))[0])
+				redimg = io.imread(glob.glob(os.path.join(workingdir,colordata['imageset'],colordata['basefile']+'-'+checkerMap['automap']['r']+'*.tif'))[0])
+				greenimg = io.imread(glob.glob(os.path.join(workingdir,colordata['imageset'],colordata['basefile']+'-'+checkerMap['automap']['g']+'*.tif'))[0])
+				blueimg = io.imread(glob.glob(os.path.join(workingdir,colordata['imageset'],colordata['basefile']+'-'+checkerMap['automap']['b']+'*.tif'))[0])
 				tempimg = np.dstack([redimg,greenimg,blueimg])
 			else:
 				print("I don't know how to perform this automap")
@@ -64,16 +63,17 @@ def XyzDict2array(dict):
 if __name__ == "__main__":
 	args = getArguments()
 	verbose = args.verbose
+	workingdir = os.path.dirname(args.colorfile)
 	print("Gathering arguments from the command line") if verbose else None
 	with open(args.colorfile,'r') as unparsedyaml:
 		colordata = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
 	capturedChecker = []
 	for visibleBand in colordata['visibleCaptures']:
-		filelist = glob.glob(os.path.join(colordata['imageset'],colordata['basefile']+'-'+visibleBand+'*.tif'))
+		filelist = glob.glob(os.path.join(workingdir,colordata['imageset'],colordata['basefile']+'-'+visibleBand+'*.tif'))
 		if len(filelist) > 1:
 			print(f"Warning: found more than one file for {visibleBand}, taking the first, which is {filelist[0]}") if verbose else None
 		elif len(filelist) < 1:
-			print(f"Failed to find files matching {os.path.join(colordata['imageset'],colordata['basefile']+'-'+visibleBand+'*.tif')}")
+			print(f"Failed to find files matching {os.path.join(workingdir,colordata['imageset'],colordata['basefile']+'-'+visibleBand+'*.tif')}")
 			exit()
 		print(f"Reading {filelist[0]}") if verbose else None
 		img = io.imread(filelist[0])
@@ -82,7 +82,7 @@ if __name__ == "__main__":
 	checkerValues = measureCheckerValues(capturedChecker,colordata['checker'])
 	checkerValues = np.array(checkerValues)
 	if 'filename' in colordata['checker']['xyzvalues']:
-		with open(colordata['checker']['xyzvalues']['filename'],'r') as unparsedyaml:
+		with open(os.path.join(workingdir,colordata['checker']['xyzvalues']['filename']),'r') as unparsedyaml:
 			xyzdict = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
 			xyzdict = xyzdict[colordata['checker']['xyzvalues']['reference']]
 	else:
@@ -91,4 +91,4 @@ if __name__ == "__main__":
 	print("Calculating ratio of known patch values to measured patch values") if verbose else None
 	checkerRatio = np.matmul( np.transpose(checkerReference) , np.transpose(np.linalg.pinv(checkerValues)) )
 	print(f"Saving {colordata['msi2xyz']}")
-	np.savetxt(colordata['msi2xyz'],checkerRatio,header='Matrix of XYZ x MSI Wavelengths, load with np.loadtxt()') 
+	np.savetxt(os.path.join(workingdir,colordata['msi2xyz']),checkerRatio,header='Matrix of XYZ x MSI Wavelengths, load with np.loadtxt()') 

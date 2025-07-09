@@ -9,7 +9,6 @@ from calibratecolor import getArguments, measureCheckerValues, XyzDict2array
 
 """
 measuredeltae.py takes color.yaml file, outputs deltaE2000 for each patch, average of 18, and average of 24 (stdout for now)
-presently wants to be run in same directory as color.yaml, can be fixed
 """
 
 verbose = False
@@ -41,9 +40,10 @@ if __name__ == "__main__":
 	print("Gathering arguments from the command line") if verbose else None
 	with open(args.colorfile,'r') as unparsedyaml:
 		colordata = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
+	workingdir = os.path.dirname(args.colorfile)
 	print("Loading reference data based on spectrophotometer readings") if verbose else None
 	if 'filename' in colordata['checker']['xyzvalues']:
-		with open(colordata['checker']['xyzvalues']['filename'],'r') as unparsedyaml:
+		with open(os.path.join(workingdir,colordata['checker']['xyzvalues']['filename']),'r') as unparsedyaml:
 			xyzdict = yaml.load(unparsedyaml,Loader=yaml.SafeLoader)
 			xyzdict = xyzdict[colordata['checker']['xyzvalues']['reference']]
 	else:
@@ -53,7 +53,7 @@ if __name__ == "__main__":
 	if False:
 		showCheckerValues(checkerReference)
 	print("Iterating through all the Color_LAB files in the Color/ directory") if verbose else None
-	for labfile in glob.glob(os.path.join('Color','*Color_LAB*')):
+	for labfile in glob.glob(os.path.join(workingdir,'Color','*Color_LAB*')):
 		print(f"{labfile=}")
 		img = io.imread(labfile)
 		showDetail(img) if verbose else None
